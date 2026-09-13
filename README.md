@@ -4,6 +4,13 @@ A separate benchmark repository for player-constrained Factorio scenarios and
 independent evaluators. It does not contain an agent-facing MCP server, RCON
 credentials, or evaluator access reachable from an agent.
 
+## Control regression fixture
+
+`fixtures/player-control-test-baseline.zip` is the versioned general-purpose
+save used for live `factorio-player-mcp` acceptance tests. Its companion
+metadata records the Factorio version, SHA-256, size, and intended control
+surface. It is deliberately separate from the future scenario-specific save.
+
 ## First scenario
 
 `scenarios/smelt-one-iron-plate.v1.json` pins a deterministic early-game task:

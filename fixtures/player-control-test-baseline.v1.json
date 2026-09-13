@@ -1,0 +1,22 @@
+{
+  "fixture_version": "1.0.0",
+  "fixture_id": "player-control-test-baseline",
+  "archive": "player-control-test-baseline.zip",
+  "sha256": "ec8e72ee066f69cce09b88ad047a2350366aa363c77aabaa706ece7a30b8f6ab",
+  "size_bytes": 1494978,
+  "factorio_version": "2.1.17",
+  "purpose": "Regression fixture for factorio-player-mcp live control acceptance tests.",
+  "scope": "General control-layer fixture; not the provisioned baseline for a scored benchmark scenario.",
+  "required_control_capabilities": [
+    "observe_actor",
+    "observe_local",
+    "craft",
+    "wait",
+    "move",
+    "mine",
+    "place",
+    "rotate",
+    "interact_inventory"
+  ],
+  "source": "Copied from /home/daniel/test_baseline.zip"
+}
