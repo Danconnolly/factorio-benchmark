@@ -11,7 +11,7 @@
     "seed": 424242,
     "starting_save": "fixtures/smelt-one-iron-plate-baseline.zip",
     "starting_save_sha256": "a8deaf1a1b85b50febbf3dba52007efa8a01f91238883dd5d3d43148b2efef8e",
-    "enabled_mods": [{"name": "factorio-player-mcp", "version": "0.1.15", "sha256": "195d411f08e4d31f83248b9756337cf8ef40051b8544353e81ea52f1da4ca129"}]
+    "enabled_mods": [{"name": "factorio-player-mcp", "version": "0.1.16", "sha256": "5af055cb47b063bfc99426e7756196d321661db030fea18bbde608a496c96338"}]
   },
   "starting_state": {
     "player_inventory": [

@@ -24,6 +24,14 @@ class FinalStateEvaluatorTests(unittest.TestCase):
 
         self.assertEqual(scenario["control"]["dedicated_player_name"], "otaci")
 
+    def test_scenario_pins_the_verified_control_archive(self) -> None:
+        scenario = json.loads(SCENARIO.read_text(encoding="utf-8"))
+
+        control_mod = scenario["world"]["enabled_mods"][0]
+        self.assertEqual(control_mod["name"], "factorio-player-mcp")
+        self.assertEqual(control_mod["version"], "0.1.16")
+        self.assertEqual(control_mod["sha256"], "5af055cb47b063bfc99426e7756196d321661db030fea18bbde608a496c96338")
+
     def test_scores_success_from_the_final_evaluator_state(self) -> None:
         result = self.evaluate(
             {

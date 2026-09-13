@@ -20,7 +20,7 @@ call, tick, and wall-clock budgets.
 The manifest declares the intended Factorio version (`2.1.17`), dedicated
 player identity, control protocol version, seed, starting inventory, budgets,
 goal, and evaluator version. The referenced baseline save is a pinned artifact generated from a real
-Factorio instance. Its provenance and the remaining live control gate are
+Factorio instance. Its provenance and the verified live control gate are
 recorded in [`docs/BASELINE_STATUS.md`](docs/BASELINE_STATUS.md).
 
 ## Independent evaluator
@@ -34,9 +34,10 @@ Run its tests with:
 
     PYTHONPATH=src python3 -m unittest discover -s tests -v
 
-## Remaining end-to-end gate
+## Verified baseline gate
 
-Provision the pinned baseline save, export an evaluator-only final-state
-projection from the final save, then verify an actual legal scripted run scores
-identically when re-evaluated offline. Until that is done, this is a tested
-scenario/evaluator foundation, not a completed benchmark run.
+The pinned baseline has passed a legal scripted MCP run using a separate copied
+run save. After control stopped, an evaluator-only projection from that final
+save passed offline scoring. The run bundle, final save, projection, and score
+are retained outside this repository as recorded in
+[`docs/BASELINE_STATUS.md`](docs/BASELINE_STATUS.md).
