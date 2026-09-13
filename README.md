@@ -19,9 +19,9 @@ call, tick, and wall-clock budgets.
 
 The manifest declares the intended Factorio version (`2.1.17`), dedicated
 player identity, control protocol version, seed, starting inventory, budgets,
-goal, and evaluator version. The referenced baseline save is an explicit
-provisioning artifact still to be generated from a real Factorio instance; this
-repository does not fabricate one.
+goal, and evaluator version. The referenced baseline save is a pinned artifact generated from a real
+Factorio instance. Its provenance and the remaining live control gate are
+recorded in [`docs/BASELINE_STATUS.md`](docs/BASELINE_STATUS.md).
 
 ## Independent evaluator
 
