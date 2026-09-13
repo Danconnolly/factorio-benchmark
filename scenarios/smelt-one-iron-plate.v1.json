@@ -5,7 +5,7 @@
   "control": {
     "repository": "factorio-player-mcp",
     "protocol_version": "1.0.0",
-    "dedicated_player_name": "benchmark-player"
+    "dedicated_player_name": "otaci"
   },
   "world": {
     "seed": 424242,

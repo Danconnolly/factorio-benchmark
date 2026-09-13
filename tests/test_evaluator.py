@@ -19,12 +19,17 @@ class FinalStateEvaluatorTests(unittest.TestCase):
             final_state.write_text(json.dumps(state), encoding="utf-8")
             return evaluate_final_state(SCENARIO, final_state)
 
+    def test_scenario_pins_the_vm_runner_identity(self) -> None:
+        scenario = json.loads(SCENARIO.read_text(encoding="utf-8"))
+
+        self.assertEqual(scenario["control"]["dedicated_player_name"], "otaci")
+
     def test_scores_success_from_the_final_evaluator_state(self) -> None:
         result = self.evaluate(
             {
                 "scenario_id": "smelt-one-iron-plate",
                 "factorio_version": "2.1.17",
-                "dedicated_player": {"name": "benchmark-player", "inventory": [{"name": "iron-plate", "count": 1}]},
+                "dedicated_player": {"name": "otaci", "inventory": [{"name": "iron-plate", "count": 1}]},
             }
         )
 
@@ -37,7 +42,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
             {
                 "scenario_id": "smelt-one-iron-plate",
                 "factorio_version": "2.1.17",
-                "dedicated_player": {"name": "benchmark-player", "inventory": [{"name": "iron-ore", "count": 1}]},
+                "dedicated_player": {"name": "otaci", "inventory": [{"name": "iron-ore", "count": 1}]},
             }
         )
 
@@ -50,7 +55,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
                 {
                     "scenario_id": "other",
                     "factorio_version": "2.1.17",
-                    "dedicated_player": {"name": "benchmark-player", "inventory": []},
+                    "dedicated_player": {"name": "otaci", "inventory": []},
                 }
             )
 
