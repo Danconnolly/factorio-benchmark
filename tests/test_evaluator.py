@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from factorio_benchmark.evaluator import evaluate_final_state
+from factorio_benchmark.run_artifacts import validate_legal_trace
 
 
 ROOT = Path(__file__).parents[1]
@@ -65,6 +66,33 @@ class FinalStateEvaluatorTests(unittest.TestCase):
                     "factorio_version": "2.1.17",
                     "dedicated_player": {"name": "otaci", "inventory": []},
                 }
+            )
+
+    def test_validates_trace_against_declared_call_and_tick_budgets(self) -> None:
+        result = validate_legal_trace(
+            {
+                "tool_calls": 8,
+                "initial_tick": 100,
+                "final_tick": 714,
+                "game_tick_delta": 614,
+                "steps": {
+                    "observe_actor_final": {
+                        "inventory": [{"name": "iron-plate", "count": 1}],
+                    }
+                },
+            },
+            tool_call_budget=40,
+            tick_budget=3600,
+        )
+
+        self.assertEqual(result, {"tool_calls": 8, "game_tick_delta": 614})
+
+    def test_rejects_trace_that_exceeds_the_tick_budget(self) -> None:
+        with self.assertRaisesRegex(ValueError, "tick budget"):
+            validate_legal_trace(
+                {"tool_calls": 1, "initial_tick": 1, "final_tick": 3602, "game_tick_delta": 3601, "steps": {}},
+                tool_call_budget=40,
+                tick_budget=3600,
             )
 
 
