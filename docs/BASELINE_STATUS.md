@@ -37,3 +37,25 @@ Status recorded: 2026-09-14
 - The final controlled-save SHA-256 is `ffb361f8cbf46d46dd28110c9bfe297a07464ce34d3ac8a9ea08d7b9d0703045`.
 
 This is an additional live verification; it does not resolve known robustness or reproducibility limitations.
+
+## Successful OpenAI-compatible Qwen agent run
+
+Status recorded: 2026-09-14
+
+- The first attempt at `/home/daniel/factorio-benchmark-runs/smelt-openai-qwen3.8-pinned-20260914` exited nonzero; it is retained as an unscored attempt. The recorded retry below is the successful run.
+- Run bundle: `/home/daniel/factorio-benchmark-runs/smelt-openai-qwen3.8-pinned-20260914-retry1` (it remains outside this repository).
+- The concrete OpenAI-compatible adapter used model `qwen3.8:latest@sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`.
+- The trusted broker recorded `7` calls across `1,348` ticks, with agent wall-clock time `90.43782821200148` seconds.
+- The final controlled-save SHA-256 is `eab3c1f6d8dcc3a72cb32627770e9012e4acc91e4241053aea84fd89a9f57cf2`.
+- Offline evaluation returned score `1.0` with `termination_reason: success`.
+
+## Authoritative Qwen final validation
+
+Status recorded: 2026-09-14
+
+- Run bundle: `/home/daniel/factorio-benchmark-runs/smelt-openai-qwen3.8-pinned-20260914-api-alias-correction` (it remains outside this repository).
+- The API model alias was `qwen3.8:latest`; the recorded pinned manifest identity was `qwen3.8:latest@sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`.
+- This validates the corrected API alias while preserving the pinned manifest identity.
+- The trusted broker recorded `7` calls across `1,317` ticks, with agent wall-clock time `32.37159557500854` seconds.
+- The final controlled-save SHA-256 is `a786e279bce6938d20aef96c333cde6bfac2aa30f40c9e0f1f24e212663b079a`.
+- The standalone `offline-evaluator-result.json` is retained and digest-indexed in the run manifest; it records score `1.0` with `termination_reason: success`.

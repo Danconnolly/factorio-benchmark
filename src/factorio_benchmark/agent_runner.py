@@ -47,6 +47,20 @@ def build_agent_environment(*, base_environment: Mapping[str, str], prompt_path:
     return environment
 
 
+def build_smelt_agent_prompt() -> str:
+    """Give the external model the fixed scenario plan, not control authority."""
+    return (
+        "Use only the supplied constrained Factorio MCP connection. Goal: put one iron-plate in "
+        "player otaci's inventory. The valid action sequence is: observe_actor; optionally "
+        "observe_local; place the stone-furnace at (2, 0), facing north; use interact_inventory "
+        "to deposit the one iron-ore into its input and the one coal into its fuel; wait 600 ticks; "
+        "use interact_inventory to withdraw one iron-plate from output; then observe_actor to "
+        "confirm it. Use the tool schemas and observed coordinates. "
+        "Do not attempt direct server control or write accounting: the broker records calls and ticks, "
+        "and only the evaluator determines completion. End with a final answer after your final observation.\n"
+    )
+
+
 def build_graphical_client_environment(base_environment: Mapping[str, str]) -> dict[str, str]:
     """Supply the local Wayland session defaults needed by the Factorio client."""
     environment = dict(base_environment)
@@ -150,6 +164,13 @@ def index_retained_artifacts(run_dir: Path, names: Sequence[str]) -> dict[str, d
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         indexed[name] = {"sha256": digest, "bytes": path.stat().st_size}
     return indexed
+
+
+def persist_offline_evaluator_result(run_dir: Path, score: Mapping[str, Any]) -> Path:
+    """Write the independently computed evaluator result retained with a run."""
+    path = run_dir / "offline-evaluator-result.json"
+    path.write_text(json.dumps(dict(score), sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
 def _unscored_result(terminal_status: str) -> dict[str, Any]:

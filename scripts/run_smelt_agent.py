@@ -22,8 +22,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from factorio_benchmark.agent_runner import (  # noqa: E402
     AgentRunConfiguration, build_agent_environment, build_agent_mcp_config,
+    build_smelt_agent_prompt,
     build_graphical_client_environment,
     build_run_manifest, index_retained_artifacts, parse_runner_arguments,
+    persist_offline_evaluator_result,
     run_agent_attempt, start_isolated_process, terminate_process_tree, validate_agent_configuration,
     validate_trusted_measurements, wait_for_readiness,
 )
@@ -118,7 +120,7 @@ def main() -> None:
         wait_for_readiness({"server": observed, "broker": lambda: socket_ready(BROKER_PORT), "dedicated_player": observed}, timeout_seconds=120, interval_seconds=1)
         config = build_agent_mcp_config(f"http://127.0.0.1:{BROKER_PORT}/mcp")
         write_json(run / "agent-mcp.json", config)
-        prompt = "Use only the supplied constrained Factorio MCP connection to attempt the scenario. Do not write accounting files; the benchmark broker records calls and ticks.\n"
+        prompt = build_smelt_agent_prompt()
         (run / "agent-prompt.txt").write_text(prompt, encoding="utf-8")
         prompt_sha = hashlib.sha256(prompt.encode()).hexdigest()
         agent_env = build_agent_environment(base_environment=os.environ, prompt_path=str(run / "agent-prompt.txt"), mcp_config_path=str(run / "agent-mcp.json"))
@@ -150,6 +152,7 @@ def main() -> None:
             wait_for_readiness({"evaluator": lambda: subprocess.run([str(args.control_python), "-c", EXPORT], env=export_env).returncode == 0}, timeout_seconds=60, interval_seconds=1)
             projection_name = "evaluator-only-final-state.v1.json"
             score = evaluate_final_state(SCENARIO, run / projection_name)
+            persist_offline_evaluator_result(run, score)
     except Exception as error:
         failure = error
         status = "runner_failed" if status == "provisioning_failed" else f"{status}_runner_failed"

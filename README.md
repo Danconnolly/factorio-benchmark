@@ -45,11 +45,15 @@ are retained outside this repository as recorded in
 ## External-agent runner
 
 `scripts/run_smelt_agent.py` provisions the isolated server/client arrangement
-and invokes one external agent process. A concrete model ID and agent command
-must be supplied; this repository does not configure or ship a model. Before
-provisioning, the script asks the supplied control Python runtime to confirm it
-has FastMCP Streamable HTTP and the `factorio-player-mcp` ActorService. Without
-that exact runtime capability it fails closed.
+and invokes one external agent process. The included concrete adapter,
+`scripts/openai_mcp_agent.py`, connects an OpenAI-compatible Chat Completions
+model to the constrained MCP broker; its default configuration is endpoint
+`http://ollama.boodle.info:11434/v1` and API model `qwen3.8:latest`.
+Ollama accepts that runnable alias at its API endpoint; retain the
+digest-qualified pinned identity separately in the runner's `--model-id`.
+Before provisioning, the script asks the supplied control Python runtime to
+confirm it has FastMCP Streamable HTTP and the `factorio-player-mcp`
+ActorService. Without that exact runtime capability it fails closed.
 
 The runner owns a `factorio_constrained_broker.py` process. The agent receives
 `BENCHMARK_AGENT_PROMPT` and an MCP configuration pointing to that broker's
@@ -71,3 +75,8 @@ timeout, malformed, or budget-ineligible attempt is explicitly unscored with a
 zero result; only a valid broker measurement permits evaluator startup. The
 manifest indexes retained final saves, evaluator files, logs, transcript, and
 measurements with digests, while credentials exist only in process memory.
+
+For the included adapter, the API and recorded model strings are intentionally
+different:
+
+    python3 scripts/run_smelt_agent.py --factorio /path/to/bin/x64/factorio --control-python /path/to/control-venv/bin/python --mod-archive /path/to/factorio-player-mcp_0.1.16.zip --client-template /path/to/factorio-user-data --runs-dir /path/to/runs --model-id qwen3.8:latest@sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643 --agent-command '["python3", "scripts/openai_mcp_agent.py", "--model", "qwen3.8:latest", "--max-turns", "12"]'

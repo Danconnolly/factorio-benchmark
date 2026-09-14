@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -11,14 +12,27 @@ from pathlib import Path
 
 from factorio_benchmark.agent_runner import (
     AgentRunConfiguration, build_agent_environment, build_agent_mcp_config,
+    build_smelt_agent_prompt,
     build_graphical_client_environment,
     build_run_manifest, index_retained_artifacts, parse_runner_arguments,
+    persist_offline_evaluator_result,
     start_isolated_process, terminate_process_tree, validate_agent_configuration,
     run_agent_attempt, validate_trusted_measurements, wait_for_readiness,
 )
 
 
 class AgentRunnerTests(unittest.TestCase):
+    def test_smelt_prompt_states_goal_legal_sequence_and_trusted_completion(self) -> None:
+        prompt = build_smelt_agent_prompt()
+        self.assertIn("one iron-plate", prompt)
+        self.assertIn("place", prompt)
+        self.assertIn("interact_inventory", prompt)
+        self.assertIn("wait", prompt)
+        self.assertIn("withdraw", prompt)
+        self.assertIn("(2, 0)", prompt)
+        self.assertIn("600", prompt)
+        self.assertIn("broker records calls and ticks", prompt)
+
     def test_rejects_missing_model_or_agent_command(self) -> None:
         with self.assertRaisesRegex(ValueError, "model ID"):
             validate_agent_configuration(AgentRunConfiguration(model_id="", agent_command=("agent",)))
@@ -81,6 +95,23 @@ class AgentRunnerTests(unittest.TestCase):
             indexed = index_retained_artifacts(run, [path.name for path in run.iterdir()])
         self.assertEqual(set(indexed), {"final-save.zip", "evaluator-input.zip", "result.json", "agent.stdout.log", "broker-transcript.jsonl"})
         self.assertTrue(all("sha256" in item for item in indexed.values()))
+
+    def test_persists_evaluated_offline_result_and_indexes_its_digest(self) -> None:
+        score = {"score": 1.0, "termination_reason": "success"}
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory)
+            result_path = persist_offline_evaluator_result(run, score)
+            expected_bytes = json.dumps(score, sort_keys=True).encode("utf-8") + b"\n"
+            self.assertEqual(result_path.read_bytes(), expected_bytes)
+            artifacts = index_retained_artifacts(run, [result_path.name])
+            manifest = build_run_manifest(
+                scenario_id="smelt", model_id="model", agent_command=["agent"], prompt_sha256="a" * 64,
+                control_metadata={}, terminal_status="completed_eligible", agent_exit={"kind": "exited"},
+                artifacts=artifacts, trusted_measurements={"tool_calls": 1},
+                evaluator_projection="evaluator-only-final-state.v1.json", score=score,
+            )
+        self.assertEqual(result_path.name, "offline-evaluator-result.json")
+        self.assertEqual(manifest["artifacts"][result_path.name]["sha256"], hashlib.sha256(expected_bytes).hexdigest())
 
     def test_runner_options_are_not_consumed_by_agent_command(self) -> None:
         args = parse_runner_arguments([
