@@ -24,3 +24,16 @@ Status recorded: 2026-09-13
 - The preserved final save SHA-256 is `a6501f7c06e5f4b714a7fe514faf0ae97a24a01f8dac7e99c4573840019ca5eb`.
 
 This establishes the first reproducible, independently scored legal scripted baseline. Agent-model comparisons remain future work and must use fresh isolated copies of the pinned baseline and equivalent run artifacts.
+
+## Additional independently verified live run
+
+Status recorded: 2026-09-14
+
+- Run bundle: `/home/daniel/factorio-benchmark-runs/live-verify-20260914-115242` (it remains outside this repository).
+- Factorio `2.1.17` build `87315` used the pinned baseline with SHA-256 `a8deaf1a1b85b50febbf3dba52007efa8a01f91238883dd5d3d43148b2efef8e` and `factorio-player-mcp` `0.1.16`, archive SHA-256 `5af055cb47b063bfc99426e7756196d321661db030fea18bbde608a496c96338`.
+- A graphical Wayland client loaded that mod and joined as `otaci`.
+- The trace contains `8` calls over `612` ticks and `10.268663110997295` seconds. The evaluator projection records one `iron-plate` for `otaci`.
+- Offline evaluation returned score `1.0` with `termination_reason: success`.
+- The final controlled-save SHA-256 is `ffb361f8cbf46d46dd28110c9bfe297a07464ce34d3ac8a9ea08d7b9d0703045`.
+
+This is an additional live verification; it does not resolve known robustness or reproducibility limitations.
