@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+from factorio_benchmark.run_artifacts import sha256_file, validate_legal_trace, validate_pinned_archive
 SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v1.json"
 BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.zip"
 
@@ -50,15 +51,6 @@ projection=json.loads(RCONClient('127.0.0.1', int(os.environ['FACTORIO_EVALUATOR
 '''
 
 
-def sha256(path: Path) -> str:
-    import hashlib
-    digest = hashlib.sha256()
-    with path.open('rb') as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b''):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def stop(process: subprocess.Popen[bytes] | None) -> None:
     if process is None or process.poll() is not None:
         return
@@ -90,14 +82,20 @@ def main() -> None:
     if run.exists():
         raise SystemExit(f"run directory already exists: {run}")
     run.mkdir(parents=True)
-    baseline_hash = sha256(BASELINE)
-    if baseline_hash != scenario['world']['starting_save_sha256']:
-        raise SystemExit('baseline hash does not match scenario')
+    try:
+        baseline_hash = validate_pinned_archive(BASELINE, scenario['world']['starting_save_sha256'], 'baseline')
+        mod_hash = validate_pinned_archive(args.mod_archive, scenario['world']['enabled_mods'][0]['sha256'], 'control mod archive')
+    except (KeyError, ValueError) as error:
+        raise SystemExit(str(error)) from error
     shutil.copy2(BASELINE, run / 'final-save.zip')
     shutil.copytree(args.client_template, run / 'client', ignore=shutil.ignore_patterns('.lock', 'temp', 'saves'))
     client_mods = run / 'client' / 'mods'; client_mods.mkdir(parents=True, exist_ok=True)
+    server_mods = run / 'server-mods'; server_mods.mkdir()
     shutil.copy2(args.mod_archive, client_mods / args.mod_archive.name)
-    (client_mods / 'mod-list.json').write_text(json.dumps({'mods':[{'name':'base','enabled':True},{'name':'factorio-player-mcp','enabled':True}]})+'\n')
+    shutil.copy2(args.mod_archive, server_mods / args.mod_archive.name)
+    mod_list = json.dumps({'mods':[{'name':'base','enabled':True},{'name':'factorio-player-mcp','enabled':True}]})+'\n'
+    (client_mods / 'mod-list.json').write_text(mod_list)
+    (server_mods / 'mod-list.json').write_text(mod_list)
     (run / 'server-settings.json').write_text(json.dumps({'name':'Local player-control benchmark','description':'isolated benchmark','tags':['benchmark'],'max_players':1,'visibility':{'public':False,'lan':False},'username':'','password':'','token':'','game_password':'','require_user_verification':False,'allow_commands':'false','autosave_interval':0,'autosave_slots':1,'afk_autokick_interval':0,'auto_pause':False,'auto_pause_when_players_connect':False,'only_admins_can_pause_the_game':True,'autosave_only_on_server':True,'non_blocking_saving':False})+'\n')
     (run / 'server-adminlist.json').write_text('["otaci"]\n')
     factorio_root = args.factorio.parents[2]
@@ -106,18 +104,19 @@ def main() -> None:
     env = os.environ.copy(); env['BENCHMARK_RUN_DIR'] = str(run); env['FACTORIO_RCON_PORT'] = '27015'; env['FACTORIO_RCON_PASSWORD'] = server_password
     server = client = evaluator = None
     try:
-        shutil.copy2(args.mod_archive, factorio_root / 'mods' / args.mod_archive.name)
-        server = subprocess.Popen([str(args.factorio),'--start-server',str(run/'final-save.zip'),'--server-settings',str(run/'server-settings.json'),'--server-adminlist',str(run/'server-adminlist.json'),'--port','34197','--rcon-bind','127.0.0.1:27015','--rcon-password',server_password,'--console-log',str(run/'server.log')])
+        server = subprocess.Popen([str(args.factorio),'--mod-directory',str(server_mods),'--start-server',str(run/'final-save.zip'),'--server-settings',str(run/'server-settings.json'),'--server-adminlist',str(run/'server-adminlist.json'),'--port','34197','--rcon-bind','127.0.0.1:27015','--rcon-password',server_password,'--console-log',str(run/'server.log')])
         client_env = env | {
             'XDG_RUNTIME_DIR': os.environ.get('XDG_RUNTIME_DIR', '/run/user/1000'),
             'WAYLAND_DISPLAY': os.environ.get('WAYLAND_DISPLAY', 'wayland-0'),
             'SDL_VIDEODRIVER': 'wayland',
         }
-        client = subprocess.Popen([str(args.factorio),'--config',str(run/'client-config.ini'),'--mp-connect','127.0.0.1:34197','--disable-audio','--force-graphics-preset','very-low','--video-memory-usage','low','--max-texture-size','2048','--window-size','640x480'], env=client_env)
+        client = subprocess.Popen([str(args.factorio),'--config',str(run/'client-config.ini'),'--mod-directory',str(client_mods),'--mp-connect','127.0.0.1:34197','--disable-audio','--force-graphics-preset','very-low','--video-memory-usage','low','--max-texture-size','2048','--window-size','640x480'], env=client_env)
         deadline=time.monotonic()+120
         while True:
             try:
-                run_child([str(args.control_python),'-c',POLICY], env)
+                policy_started = time.monotonic()
+                run_child([str(args.control_python),'-c',POLICY], env, timeout=scenario['budgets']['wall_clock_seconds'])
+                policy_elapsed = time.monotonic() - policy_started
                 break
             except RuntimeError:
                 if time.monotonic() >= deadline: raise
@@ -125,7 +124,7 @@ def main() -> None:
         stop(client); client=None; stop(server); server=None
         shutil.copy2(run/'final-save.zip', run/'final-save-after-control.zip'); shutil.copy2(run/'final-save.zip', run/'evaluator-input.zip')
         evaluator_password=secrets.token_urlsafe(32); (run/'evaluator-rcon-password').write_text(evaluator_password); os.chmod(run/'evaluator-rcon-password',0o600)
-        evaluator=subprocess.Popen([str(args.factorio),'--start-server',str(run/'evaluator-input.zip'),'--server-settings',str(run/'server-settings.json'),'--server-adminlist',str(run/'server-adminlist.json'),'--port','34198','--rcon-bind','127.0.0.1:27016','--rcon-password',evaluator_password,'--console-log',str(run/'evaluator-server.log')])
+        evaluator=subprocess.Popen([str(args.factorio),'--mod-directory',str(server_mods),'--start-server',str(run/'evaluator-input.zip'),'--server-settings',str(run/'server-settings.json'),'--server-adminlist',str(run/'server-adminlist.json'),'--port','34198','--rcon-bind','127.0.0.1:27016','--rcon-password',evaluator_password,'--console-log',str(run/'evaluator-server.log')])
         export_env=env | {'FACTORIO_EVALUATOR_RCON_PORT':'27016'}
         deadline=time.monotonic()+60
         while True:
@@ -135,12 +134,13 @@ def main() -> None:
                 if time.monotonic() >= deadline: raise
                 time.sleep(1)
         from factorio_benchmark.evaluator import evaluate_final_state
-        from factorio_benchmark.run_artifacts import validate_legal_trace
         trace=json.loads((run/'legal-run-trace.json').read_text())
-        budgets=validate_legal_trace(trace, tool_call_budget=scenario['budgets']['tool_calls'], tick_budget=scenario['budgets']['game_ticks'])
+        trace['wall_clock_seconds'] = policy_elapsed
+        (run/'legal-run-trace.json').write_text(json.dumps(trace, sort_keys=True)+'\n')
+        budgets=validate_legal_trace(trace, tool_call_budget=scenario['budgets']['tool_calls'], tick_budget=scenario['budgets']['game_ticks'], wall_clock_budget=scenario['budgets']['wall_clock_seconds'])
         result=evaluate_final_state(SCENARIO,run/'evaluator-only-final-state.v1.json')
         (run/'offline-evaluator-result.json').write_text(json.dumps(result,sort_keys=True)+'\n')
-        manifest={'scenario':scenario['scenario_id'],'baseline_sha256':baseline_hash,'final_save_sha256':sha256(run/'final-save.zip'),'budgets':budgets,'score':result}
+        manifest={'scenario':scenario['scenario_id'],'baseline_sha256':baseline_hash,'control_mod_sha256':mod_hash,'final_save_sha256':sha256_file(run/'final-save.zip'),'budgets':budgets,'score':result}
         (run/'run-manifest.json').write_text(json.dumps(manifest,sort_keys=True)+'\n')
         print(json.dumps(manifest,sort_keys=True))
     finally:

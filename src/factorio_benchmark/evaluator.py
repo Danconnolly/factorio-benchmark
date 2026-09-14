@@ -70,8 +70,14 @@ def evaluate_final_state(scenario_path: Path, final_state_path: Path) -> dict[st
 
     actual_count = _item_count(dedicated_player.get("inventory"), item)
     success = actual_count >= required_count
+    evaluator = scenario.get("evaluator")
+    if not isinstance(evaluator, dict):
+        raise ValueError("scenario evaluator must be an object")
+    evaluator_version = evaluator.get("version")
+    if not isinstance(evaluator_version, str) or not evaluator_version:
+        raise ValueError("scenario evaluator version must be a non-empty string")
     return {
-        "evaluator_version": scenario["evaluator"]["version"],
+        "evaluator_version": evaluator_version,
         "scenario_id": scenario_id,
         "termination_reason": "success" if success else "goal_not_met",
         "score": 1.0 if success else 0.0,
