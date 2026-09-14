@@ -41,3 +41,33 @@ run save. After control stopped, an evaluator-only projection from that final
 save passed offline scoring. The run bundle, final save, projection, and score
 are retained outside this repository as recorded in
 [`docs/BASELINE_STATUS.md`](docs/BASELINE_STATUS.md).
+
+## External-agent runner
+
+`scripts/run_smelt_agent.py` provisions the isolated server/client arrangement
+and invokes one external agent process. A concrete model ID and agent command
+must be supplied; this repository does not configure or ship a model. Before
+provisioning, the script asks the supplied control Python runtime to confirm it
+has FastMCP Streamable HTTP and the `factorio-player-mcp` ActorService. Without
+that exact runtime capability it fails closed.
+
+The runner owns a `factorio_constrained_broker.py` process. The agent receives
+`BENCHMARK_AGENT_PROMPT` and an MCP configuration pointing to that broker's
+loopback Streamable HTTP endpoint; it receives neither an RCON password nor an
+evaluator credential. The broker exposes only actor observation, local
+observation, placement, inventory interaction, and waiting—never generic RCON,
+Lua, command, or evaluation tools. It produces the call/tick measurement and
+transcript itself; agent-reported accounting is ignored.
+
+For example (do not run this until the paths and agent executable are real):
+
+    python3 scripts/run_smelt_agent.py --factorio /path/to/bin/x64/factorio --control-python /path/to/control-venv/bin/python --mod-archive /path/to/factorio-player-mcp_0.1.16.zip --client-template /path/to/factorio-user-data --runs-dir /path/to/runs --model-id example-model --agent-command '["/path/to/agent", "--its-options"]'
+
+`--agent-command` is a JSON argv array, so runner flags cannot be consumed as
+agent arguments. Server, broker, and player readiness are bounded gates before
+agent wall-clock timing begins. The agent starts in a new session and its whole
+process group is terminated before an evaluator password is created. A nonzero,
+timeout, malformed, or budget-ineligible attempt is explicitly unscored with a
+zero result; only a valid broker measurement permits evaluator startup. The
+manifest indexes retained final saves, evaluator files, logs, transcript, and
+measurements with digests, while credentials exist only in process memory.
