@@ -30,8 +30,8 @@ class FinalStateEvaluatorTests(unittest.TestCase):
 
         control_mod = scenario["world"]["enabled_mods"][0]
         self.assertEqual(control_mod["name"], "factorio-player-mcp")
-        self.assertEqual(control_mod["version"], "0.1.16")
-        self.assertEqual(control_mod["sha256"], "5af055cb47b063bfc99426e7756196d321661db030fea18bbde608a496c96338")
+        self.assertEqual(control_mod["version"], "0.1.17")
+        self.assertEqual(control_mod["sha256"], "69bea415dc435e83312cbb8c9f11adfebeaec16fdf05591699b5191abff399a1")
 
     def test_scores_success_from_the_final_evaluator_state(self) -> None:
         result = self.evaluate(

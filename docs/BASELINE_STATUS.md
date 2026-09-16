@@ -38,6 +38,24 @@ Status recorded: 2026-09-14
 
 This is an additional live verification; it does not resolve known robustness or reproducibility limitations.
 
+## Deterministic control-package verification
+
+Status recorded: 2026-09-16
+
+- `factorio-player-mcp` `0.1.17` is a deterministic archive release. Its
+  archive SHA-256 is
+  `69bea415dc435e83312cbb8c9f11adfebeaec16fdf05591699b5191abff399a1`.
+- `smelt-one-iron-plate.v1` now pins that exact archive while preserving its
+  immutable starting-save SHA-256.
+- Run bundle: `/home/daniel/factorio-benchmark-runs/smelt-control-0.1.17-live`.
+  The provisioner launched Factorio `2.1.17` build `87315`, loaded the exact
+  archive on both server and graphical Wayland client, and connected `otaci`.
+- The legal eight-call typed sequence completed in `618` game ticks and
+  `10.374271502019837` seconds. Its offline evaluator recorded score `1.0`,
+  `termination_reason: success`, and `iron-plate` actual count `1`.
+- The run-local final controlled save SHA-256 is
+  `f0261c3cadb3f8100fe7d59e199443e1a80e1cde3c99dbf4464554db8335f08b`.
+
 ## Successful OpenAI-compatible Qwen agent run
 
 Status recorded: 2026-09-14
