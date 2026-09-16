@@ -56,6 +56,28 @@ Status recorded: 2026-09-16
 - The run-local final controlled save SHA-256 is
   `f0261c3cadb3f8100fe7d59e199443e1a80e1cde3c99dbf4464554db8335f08b`.
 
+## Full player-control regression gate
+
+Status recorded: 2026-09-17
+
+- `scripts/run_player_control_regression.py` provisions a fresh copy of
+  `player-control-test-baseline.v1`, a loopback-only headless server, and a
+  separate graphical Wayland client. It retains only run-local state and
+  keeps the RCON password host-only.
+- Run bundle:
+  `/home/daniel/factorio-benchmark-runs/player-control-regression-0.1.17`.
+  It used Factorio `2.1.17` and the exact `factorio-player-mcp` `0.1.17`
+  archive with SHA-256
+  `69bea415dc435e83312cbb8c9f11adfebeaec16fdf05591699b5191abff399a1`.
+- The typed sequence covered all nine public capabilities and three structured
+  rejections (`recipe_not_available`, `inventory_target_unavailable`, and
+  `placement_not_charted`). It made `20` calls over `426` game ticks in
+  `7.180721796001308` seconds.
+- The copied fixture retained its pinned SHA-256
+  `ec8e72ee066f69cce09b88ad047a2350366aa363c77aabaa706ece7a30b8f6ab`.
+  The final run-local save SHA-256 is
+  `62b45d33d6757ef60213736b0add6ec5a96c6b70a2eba3f86b9ff475cdad8bfc`.
+
 ## Successful OpenAI-compatible Qwen agent run
 
 Status recorded: 2026-09-14
