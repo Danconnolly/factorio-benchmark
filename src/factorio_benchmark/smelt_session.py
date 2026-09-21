@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import inspect
 import json
 import os
 import secrets
@@ -19,7 +18,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any
 
 ROOT = Path(__file__).parents[2]
 
@@ -34,14 +33,14 @@ from factorio_benchmark.agent_runner import (
 )
 from factorio_benchmark.evaluator import evaluate_final_state
 from factorio_benchmark.run_artifacts import sha256_file, validate_pinned_archive
-from factorio_benchmark.session import CallbackRequest, validate_callback_result
+from factorio_benchmark.session import AsyncCallback, CallbackRequest, run_callback_attempt
 
 SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v1.json"
 BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.zip"
 BROKER = ROOT / "scripts" / "factorio_constrained_broker.py"
-CONTROL_PORT, EVALUATOR_PORT, BROKER_PORT = 27015, 27016, 38123
+CONTROL_PORT, EVALUATOR_PORT = 27015, 27016
 
-AgentCallback = Callable[[CallbackRequest], Mapping[str, Any] | Awaitable[Mapping[str, Any]]]
+AgentCallback = AsyncCallback
 
 
 @dataclass(frozen=True)
@@ -64,6 +63,13 @@ def run_smelt_callback_session(*, runtime: SmeltSessionRuntime, model_id: str,
         agent_command=("in-process-callback",),
     )
     return run_smelt_session(args, callback=callback)
+
+
+def allocate_loopback_port() -> int:
+    """Reserve a fresh loopback-selected port for this process launch."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        return int(listener.getsockname()[1])
 
 EXPORT = r'''import json, os, pathlib
 from factorio_rcon import RCONClient
@@ -118,8 +124,8 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
     projection_name = None
     final_digest = None
     server = client = broker = agent = evaluator = None
+    broker_port = allocate_loopback_port()
     prompt_sha = ""
-    failure: Exception | None = None
     try:
         baseline_hash = validate_pinned_archive(BASELINE, scenario["world"]["starting_save_sha256"], "baseline")
         mod_hash = validate_pinned_archive(args.mod_archive, scenario["world"]["enabled_mods"][0]["sha256"], "control mod archive")
@@ -137,7 +143,7 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
         control_password = secrets.token_urlsafe(32)  # never written to an artifact
         server = subprocess.Popen([str(args.factorio), "--mod-directory", str(run / "server-mods"), "--start-server", str(run / "final-save.zip"), "--server-settings", str(run / "server-settings.json"), "--server-adminlist", str(run / "server-adminlist.json"), "--port", "34197", "--rcon-bind", f"127.0.0.1:{CONTROL_PORT}", "--rcon-password", control_password, "--console-log", str(run / "server.log")])
         broker_env = os.environ.copy() | {"FACTORIO_RCON_HOST": "127.0.0.1", "FACTORIO_RCON_PORT": str(CONTROL_PORT), "FACTORIO_RCON_PASSWORD": control_password}
-        broker = start_isolated_process([str(args.control_python), str(BROKER), "--port", str(BROKER_PORT), "--measurements", str(run / "broker-measurements.json"), "--transcript", str(run / "broker-transcript.jsonl")], env=broker_env, stdout=(run / "broker.stdout.log").open("w"), stderr=(run / "broker.stderr.log").open("w"))
+        broker = start_isolated_process([str(args.control_python), str(BROKER), "--port", str(broker_port), "--measurements", str(run / "broker-measurements.json"), "--transcript", str(run / "broker-transcript.jsonl")], env=broker_env, stdout=(run / "broker.stdout.log").open("w"), stderr=(run / "broker.stderr.log").open("w"))
         client = subprocess.Popen([str(args.factorio), "--config", str(run / "client-config.ini"), "--mod-directory", str(run / "client" / "mods"), "--mp-connect", "127.0.0.1:34197", "--disable-audio", "--force-graphics-preset", "very-low", "--video-memory-usage", "low", "--max-texture-size", "2048", "--window-size", "640x480"], env=build_graphical_client_environment(os.environ))
         # Gates finish before the measured agent interval.  The server/player
         # checks are broker observations, and the socket check proves the real
@@ -145,8 +151,8 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
         def observed() -> bool:
             probe = subprocess.run([str(args.control_python), "-c", "from factorio_player_mcp.rcon import FactorioRconSender; from factorio_player_mcp.service import ActorService; import os; assert ActorService(FactorioRconSender(host='127.0.0.1',port=int(os.environ['FACTORIO_RCON_PORT']),password=os.environ['FACTORIO_RCON_PASSWORD'])).observe_actor().get('status') == 'completed'"], env=broker_env)
             return probe.returncode == 0
-        wait_for_readiness({"server": observed, "broker": lambda: socket_ready(BROKER_PORT), "dedicated_player": observed}, timeout_seconds=120, interval_seconds=1)
-        config = build_agent_mcp_config(f"http://127.0.0.1:{BROKER_PORT}/mcp")
+        wait_for_readiness({"server": observed, "broker": lambda: socket_ready(broker_port), "dedicated_player": observed}, timeout_seconds=120, interval_seconds=1)
+        config = build_agent_mcp_config(f"http://127.0.0.1:{broker_port}/mcp")
         write_json(run / "agent-mcp.json", config)
         prompt = build_smelt_agent_prompt()
         (run / "agent-prompt.txt").write_text(prompt, encoding="utf-8")
@@ -156,18 +162,14 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
             with (run / "agent.stdout.log").open("w") as stdout, (run / "agent.stderr.log").open("w") as stderr:
                 status, agent_exit = run_agent_attempt(configuration.agent_command, agent_env, timeout_seconds=scenario["budgets"]["wall_clock_seconds"], stdout=stdout, stderr=stderr)
         else:
-            started = time.monotonic()
-            try:
-                callback_result = callback(CallbackRequest(prompt=prompt, mcp_config=config))
-                if inspect.isawaitable(callback_result):
-                    callback_result = asyncio.run(callback_result)
-                write_json(run / "agent-callback-result.json", validate_callback_result(callback_result))
-                status = "completed_pending_budget"
-                agent_exit = {"kind": "callback_returned", "wall_clock_seconds": time.monotonic() - started}
-            except Exception as error:
-                status = "agent_callback_error"
-                agent_exit = {"kind": "callback_error", "wall_clock_seconds": time.monotonic() - started}
-                (run / "agent.stderr.log").write_text(str(error) + "\n", encoding="utf-8")
+            status, agent_exit, callback_result = asyncio.run(run_callback_attempt(
+                callback, CallbackRequest(prompt=prompt, mcp_config=config),
+                timeout_seconds=scenario["budgets"]["wall_clock_seconds"],
+            ))
+            if callback_result is not None:
+                write_json(run / "agent-callback-result.json", callback_result)
+            elif agent_exit.get("error"):
+                (run / "agent.stderr.log").write_text(str(agent_exit["error"]) + "\n", encoding="utf-8")
         measurement_path = run / "broker-measurements.json"
         if status == "completed_pending_budget":
             try:
@@ -194,7 +196,6 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
             score = evaluate_final_state(SCENARIO, run / projection_name)
             persist_offline_evaluator_result(run, score)
     except Exception as error:
-        failure = error
         status = "runner_failed" if status == "provisioning_failed" else f"{status}_runner_failed"
         (run / "runner-error.txt").write_text(str(error) + "\n", encoding="utf-8")
     finally:
@@ -206,15 +207,17 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
         manifest["control_mod_sha256"] = locals().get("mod_hash")
         manifest["final_save_sha256"] = final_digest
         manifest["run_bundle_path"] = str(run.resolve())
-        write_json(run / "run-manifest.json", manifest)
-        result = manifest
-    if failure:
-        raise SystemExit(str(failure))
+        manifest_path = run / "run-manifest.json"
+        write_json(manifest_path, manifest)
+        result = manifest | {"run_manifest_sha256": sha256_file(manifest_path)}
     return result
 
 
 def main() -> None:
-    print(json.dumps(run_smelt_session(parse_runner_arguments()), sort_keys=True))
+    result = run_smelt_session(parse_runner_arguments())
+    print(json.dumps(result, sort_keys=True))
+    if result["terminal_status"] != "completed_eligible":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

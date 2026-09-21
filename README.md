@@ -57,7 +57,7 @@ ActorService. Without that exact runtime capability it fails closed.
 
 The runner owns a `factorio_constrained_broker.py` process. The agent receives
 `BENCHMARK_AGENT_PROMPT` and an MCP configuration pointing to that broker's
-loopback Streamable HTTP endpoint; it receives neither an RCON password nor an
+per-run dynamically allocated loopback Streamable HTTP endpoint; it receives neither an RCON password nor an
 evaluator credential. The broker exposes only actor observation, local
 observation, placement, inventory interaction, and waiting—never generic RCON,
 Lua, command, or evaluation tools. It produces the call/tick measurement and
@@ -75,6 +75,13 @@ timeout, malformed, or budget-ineligible attempt is explicitly unscored with a
 zero result; only a valid broker measurement permits evaluator startup. The
 manifest indexes retained final saves, evaluator files, logs, transcript, and
 measurements with digests, while credentials exist only in process memory.
+In-process callbacks use the same wall-clock budget through an asynchronous,
+cooperatively cancellable contract: cancellation is awaited before broker,
+client, and server teardown, and before any evaluator is created.
+The broker currently has no authentication capability, so this endpoint uses a
+narrow local-trust assumption: it binds only to `127.0.0.1`, uses an unguessable
+per-run port, and stops before evaluator creation. No broker URL or credential
+is retained in the run manifest.
 
 For the included adapter, the API and recorded model strings are intentionally
 different:
