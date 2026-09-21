@@ -71,22 +71,27 @@ def make_server(measurement_path: Path, transcript_path: Path) -> Any:
 
     @mcp.tool
     def observe_actor() -> Any:
+        """Return the controlled player's current state."""
         return invoke("observe_actor")
 
     @mcp.tool
     def observe_local(radius: int) -> Any:
+        """Return nearby world state within the requested radius."""
         return invoke("observe_local", radius=radius)
 
     @mcp.tool
     def place(item: str, x: float, y: float, direction: str) -> Any:
+        """Place an item at the requested position and direction."""
         return invoke("place", item=item, x=x, y=y, direction=direction)
 
     @mcp.tool
     def interact_inventory(x: float, y: float, item: str, count: int, operation: str, slot: str) -> Any:
+        """Transfer items to or from an inventory at a position."""
         return invoke("interact_inventory", x=x, y=y, item=item, count=count, operation=operation, slot=slot)
 
     @mcp.tool
     def wait(ticks: int) -> Any:
+        """Advance the game by the requested number of ticks."""
         return invoke("wait", ticks=ticks)
 
     return mcp
