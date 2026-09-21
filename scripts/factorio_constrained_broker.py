@@ -59,7 +59,7 @@ def make_server(measurement_path: Path, transcript_path: Path) -> Any:
         try:
             result = getattr(service, name)(**arguments)
         except ValueError as error:
-            result = {"status": "rejected", "reason": str(error)}
+            result = {"status": "rejected", "reason": "invalid_request", "message": str(error)}
         # Every exposed action is charged by this broker, including failures.
         measurements["tool_calls"] += 1
         tick = result.get("tick") if isinstance(result, dict) else None

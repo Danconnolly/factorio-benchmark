@@ -70,7 +70,11 @@ class ConstrainedBrokerTests(unittest.TestCase):
                 interact_inventory = next(tool for tool in server.tools if tool.__name__ == "interact_inventory")
                 result = interact_inventory(0, 0, "iron-ore", 1, "invalid", "input")
 
-                self.assertEqual(result, {"status": "rejected", "reason": "operation must be deposit or withdraw"})
+                self.assertEqual(result, {
+                    "status": "rejected",
+                    "reason": "invalid_request",
+                    "message": "operation must be deposit or withdraw",
+                })
                 self.assertEqual(json.loads(measurement_path.read_text(encoding="utf-8"))["tool_calls"], 1)
                 self.assertEqual(json.loads(transcript_path.read_text(encoding="utf-8")), {
                     "tool": "interact_inventory",
