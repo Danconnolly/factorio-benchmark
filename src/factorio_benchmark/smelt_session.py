@@ -205,6 +205,7 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
         manifest["baseline_sha256"] = locals().get("baseline_hash")
         manifest["control_mod_sha256"] = locals().get("mod_hash")
         manifest["final_save_sha256"] = final_digest
+        manifest["run_bundle_path"] = str(run.resolve())
         write_json(run / "run-manifest.json", manifest)
         result = manifest
     if failure:
