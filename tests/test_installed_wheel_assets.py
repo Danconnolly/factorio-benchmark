@@ -71,7 +71,7 @@ assert result["terminal_status"] == "runner_failed", result
 print(json.dumps({"broker": str(assets.broker), "scenario": str(assets.scenario), "baseline": str(assets.baseline)}))
 '''
             result = subprocess.run(
-                [str(python), "-c", smoke], check=True, capture_output=True, text=True,
+                [str(python), "-I", "-c", smoke], check=True, capture_output=True, text=True,
             )
             paths = json.loads(result.stdout)
             for path in paths.values():
