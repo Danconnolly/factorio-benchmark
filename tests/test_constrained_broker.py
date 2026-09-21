@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import importlib.util
 import sys
 import tempfile
@@ -27,6 +26,16 @@ class ConstrainedBrokerTests(unittest.TestCase):
             def __init__(self, _sender: Sender) -> None:
                 pass
 
+        class FastMCP:
+            def __init__(self, _name: str) -> None:
+                self.tools: list[object] = []
+
+            def tool(self, function: object) -> object:
+                self.tools.append(function)
+                return function
+
+        fastmcp = types.ModuleType("fastmcp")
+        fastmcp.FastMCP = FastMCP
         rcon = types.ModuleType("factorio_player_mcp.rcon")
         rcon.FactorioRconSender = Sender
         service = types.ModuleType("factorio_player_mcp.service")
@@ -38,6 +47,7 @@ class ConstrainedBrokerTests(unittest.TestCase):
         broker = importlib.util.module_from_spec(spec)
 
         with patch.dict(sys.modules, {
+            "fastmcp": fastmcp,
             "factorio_player_mcp": package,
             "factorio_player_mcp.rcon": rcon,
             "factorio_player_mcp.service": service,
@@ -50,9 +60,8 @@ class ConstrainedBrokerTests(unittest.TestCase):
             }, clear=False):
                 server = broker.make_server(Path(directory) / "measurements.json", Path(directory) / "transcript.jsonl")
 
-        tools = asyncio.run(server.list_tools())
-        self.assertEqual({tool.name for tool in tools}, {"observe_actor", "observe_local", "place", "interact_inventory", "wait"})
-        self.assertTrue(all(tool.description and tool.description.strip() for tool in tools))
+        self.assertEqual({tool.__name__ for tool in server.tools}, {"observe_actor", "observe_local", "place", "interact_inventory", "wait"})
+        self.assertTrue(all(tool.__doc__ and tool.__doc__.strip() for tool in server.tools))
 
 
 if __name__ == "__main__":
