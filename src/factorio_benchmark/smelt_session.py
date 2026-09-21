@@ -7,6 +7,7 @@ whose broker-generated measurements are valid; no agent-written trace exists.
 from __future__ import annotations
 
 import asyncio
+import argparse
 import hashlib
 import json
 import os

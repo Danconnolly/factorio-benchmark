@@ -8,10 +8,41 @@ from pathlib import Path
 from unittest.mock import patch
 
 from factorio_benchmark.session import CallbackRequest, run_callback_attempt, validate_callback_result
-from factorio_benchmark.smelt_session import run_smelt_session
+from factorio_benchmark.smelt_session import (
+    SmeltSessionRuntime, run_smelt_callback_session, run_smelt_session,
+)
 
 
 class SessionCallbackTests(unittest.TestCase):
+    def test_callback_session_builds_callback_namespace_without_provisioning(self) -> None:
+        runtime = SmeltSessionRuntime(
+            factorio=Path("/factorio/bin/x64/factorio"),
+            control_python=Path("/usr/bin/python3"),
+            mod_archive=Path("/mods/factorio-player-mcp.zip"),
+            client_template=Path("/client-template"),
+            runs_dir=Path("/runs"),
+            run_name="callback-run",
+        )
+
+        async def callback(request):
+            return {"answer": "done"}
+
+        with patch("factorio_benchmark.smelt_session.run_smelt_session") as run:
+            run.return_value = {"terminal_status": "completed"}
+            result = run_smelt_callback_session(
+                runtime=runtime, model_id="test-model", callback=callback,
+            )
+
+        self.assertEqual(result, {"terminal_status": "completed"})
+        args = run.call_args.args[0]
+        self.assertEqual(args, Namespace(
+            factorio=runtime.factorio, control_python=runtime.control_python,
+            mod_archive=runtime.mod_archive, client_template=runtime.client_template,
+            runs_dir=runtime.runs_dir, run_name=runtime.run_name, model_id="test-model",
+            agent_command=("in-process-callback",),
+        ))
+        self.assertIs(run.call_args.kwargs["callback"], callback)
+
     def test_callback_request_contains_only_prompt_and_constrained_mcp(self) -> None:
         request = CallbackRequest(
             prompt="goal", mcp_config={"mcpServers": {"factorio": {
