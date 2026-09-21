@@ -34,6 +34,15 @@ Run its tests with:
 
     PYTHONPATH=src python3 -m unittest discover -s tests -v
 
+The release wheel carries its runtime broker, scenario, and pinned baseline
+under `factorio_benchmark/assets/`. The session resolver supplies absolute
+physical paths from that package tree, so the external `--control-python`
+interpreter executes the packaged broker script directly and does not need a
+sibling benchmark checkout. Verify this without starting Factorio with:
+
+    uv run python -m unittest tests/test_installed_wheel_assets.py -v
+    uv build --wheel
+
 ## Verified baseline gate
 
 The pinned baseline has passed a legal scripted MCP run using a separate copied

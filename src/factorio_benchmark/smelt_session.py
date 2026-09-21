@@ -21,8 +21,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).parents[2]
-
 from factorio_benchmark.agent_runner import (
     AgentRunConfiguration, build_agent_environment, build_agent_mcp_config,
     build_smelt_agent_prompt,
@@ -35,10 +33,12 @@ from factorio_benchmark.agent_runner import (
 from factorio_benchmark.evaluator import evaluate_final_state
 from factorio_benchmark.run_artifacts import sha256_file, validate_pinned_archive
 from factorio_benchmark.session import AsyncCallback, CallbackRequest, run_callback_attempt
+from factorio_benchmark.assets import runtime_assets
 
-SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v1.json"
-BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.zip"
-BROKER = ROOT / "scripts" / "factorio_constrained_broker.py"
+RUNTIME_ASSETS = runtime_assets()
+SCENARIO = RUNTIME_ASSETS.scenario
+BASELINE = RUNTIME_ASSETS.baseline
+BROKER = RUNTIME_ASSETS.broker
 CONTROL_PORT, EVALUATOR_PORT = 27015, 27016
 
 AgentCallback = AsyncCallback
