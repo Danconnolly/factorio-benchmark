@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -46,6 +47,11 @@ class FinalStateEvaluatorTests(unittest.TestCase):
         self.assertEqual(fixture["factorio_version"], "2.0.77")
         self.assertEqual(fixture["control"]["mod_version"], "0.2.0")
         self.assertEqual(fixture["sha256"], sha256_file(BASELINE))
+
+    def test_benchmark_release_version_matches_the_v2_asset_cutover(self) -> None:
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+        self.assertEqual(project["project"]["version"], "0.2.0")
 
     def test_scores_success_from_the_final_evaluator_state(self) -> None:
         result = self.evaluate(
