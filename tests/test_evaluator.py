@@ -6,11 +6,13 @@ import unittest
 from pathlib import Path
 
 from factorio_benchmark.evaluator import evaluate_final_state
-from factorio_benchmark.run_artifacts import validate_legal_trace, validate_pinned_archive
+from factorio_benchmark.run_artifacts import sha256_file, validate_legal_trace, validate_pinned_archive
 
 
 ROOT = Path(__file__).parents[1]
-SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v1.json"
+SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v2.json"
+FIXTURE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.v2.json"
+BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.v2.zip"
 
 
 class FinalStateEvaluatorTests(unittest.TestCase):
@@ -20,24 +22,36 @@ class FinalStateEvaluatorTests(unittest.TestCase):
             final_state.write_text(json.dumps(state), encoding="utf-8")
             return evaluate_final_state(SCENARIO, final_state)
 
-    def test_scenario_pins_the_vm_runner_identity(self) -> None:
+    def test_v2_scenario_pins_the_release_runtime(self) -> None:
         scenario = json.loads(SCENARIO.read_text(encoding="utf-8"))
 
+        self.assertEqual(scenario["factorio_version"], "2.0.77")
         self.assertEqual(scenario["control"]["dedicated_player_name"], "otaci")
+        self.assertEqual(scenario["world"]["seed"], 424242)
 
     def test_scenario_pins_the_verified_control_archive(self) -> None:
         scenario = json.loads(SCENARIO.read_text(encoding="utf-8"))
 
         control_mod = scenario["world"]["enabled_mods"][0]
         self.assertEqual(control_mod["name"], "factorio-player-mcp")
-        self.assertEqual(control_mod["version"], "0.1.17")
-        self.assertEqual(control_mod["sha256"], "69bea415dc435e83312cbb8c9f11adfebeaec16fdf05591699b5191abff399a1")
+        self.assertEqual(control_mod["version"], "0.2.0")
+        self.assertEqual(control_mod["sha256"], "7870b21fabdc1997ed11f3115d70692d4e3539e61c8067c0ce8a005c7f497f06")
+        self.assertEqual(scenario["world"]["starting_save"], "fixtures/smelt-one-iron-plate-baseline.v2.zip")
+        self.assertEqual(scenario["world"]["starting_save_sha256"], "cbafe4ca67ad26ed25de46ff1083a080e40fca9c82369125b5e8239dddfc622b")
+
+    def test_v2_fixture_metadata_matches_the_immutable_archive(self) -> None:
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+        self.assertEqual(fixture["archive"], BASELINE.name)
+        self.assertEqual(fixture["factorio_version"], "2.0.77")
+        self.assertEqual(fixture["control"]["mod_version"], "0.2.0")
+        self.assertEqual(fixture["sha256"], sha256_file(BASELINE))
 
     def test_scores_success_from_the_final_evaluator_state(self) -> None:
         result = self.evaluate(
             {
                 "scenario_id": "smelt-one-iron-plate",
-                "factorio_version": "2.1.17",
+                "factorio_version": "2.0.77",
                 "dedicated_player": {"name": "otaci", "inventory": [{"name": "iron-plate", "count": 1}]},
             }
         )
@@ -50,7 +64,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
         result = self.evaluate(
             {
                 "scenario_id": "smelt-one-iron-plate",
-                "factorio_version": "2.1.17",
+                "factorio_version": "2.0.77",
                 "dedicated_player": {"name": "otaci", "inventory": [{"name": "iron-ore", "count": 1}]},
             }
         )
@@ -63,7 +77,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
             self.evaluate(
                 {
                     "scenario_id": "other",
-                    "factorio_version": "2.1.17",
+                    "factorio_version": "2.0.77",
                     "dedicated_player": {"name": "otaci", "inventory": []},
                 }
             )
@@ -122,7 +136,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
             scenario_path = Path(directory) / "scenario.json"
             final_state = Path(directory) / "final-state.json"
             scenario_path.write_text(json.dumps(scenario), encoding="utf-8")
-            final_state.write_text(json.dumps({"scenario_id": "smelt-one-iron-plate", "factorio_version": "2.1.17", "dedicated_player": {"name": "otaci", "inventory": []}}), encoding="utf-8")
+            final_state.write_text(json.dumps({"scenario_id": "smelt-one-iron-plate", "factorio_version": "2.0.77", "dedicated_player": {"name": "otaci", "inventory": []}}), encoding="utf-8")
 
             with self.assertRaisesRegex(ValueError, "scenario evaluator"):
                 evaluate_final_state(scenario_path, final_state)

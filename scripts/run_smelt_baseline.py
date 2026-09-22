@@ -15,8 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from factorio_benchmark.run_artifacts import sha256_file, validate_legal_trace, validate_pinned_archive
-SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v1.json"
-BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.zip"
+SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v2.json"
+BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.v2.zip"
 
 POLICY = r'''
 import json, os, pathlib
@@ -40,12 +40,12 @@ trace={'tool_calls':len(steps),'initial_tick':initial['tick'],'final_tick':final
 (run/'legal-run-trace.json').write_text(json.dumps(trace, sort_keys=True)+'\n')
 '''
 
-EXPORT = r'''
+EXPORT_TEMPLATE = r'''
 import json, os, pathlib
 from factorio_rcon import RCONClient
 run=pathlib.Path(os.environ['BENCHMARK_RUN_DIR'])
 password=(run/'evaluator-rcon-password').read_text()
-command="/silent-command local p=game.get_player('otaci'); rcon.print(helpers.table_to_json({scenario_id='smelt-one-iron-plate',factorio_version='2.1.17',dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))"
+command="/silent-command local p=game.get_player('otaci'); rcon.print(helpers.table_to_json({scenario_id='smelt-one-iron-plate',factorio_version=__FACTORIO_VERSION__,dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))"
 projection=json.loads(RCONClient('127.0.0.1', int(os.environ['FACTORIO_EVALUATOR_RCON_PORT']), password).send_command(command))
 (run/'evaluator-only-final-state.v1.json').write_text(json.dumps(projection, sort_keys=True)+'\n')
 '''
@@ -129,7 +129,8 @@ def main() -> None:
         deadline=time.monotonic()+60
         while True:
             try:
-                run_child([str(args.control_python),'-c',EXPORT], export_env); break
+                export = EXPORT_TEMPLATE.replace('__FACTORIO_VERSION__', json.dumps(scenario['factorio_version']))
+                run_child([str(args.control_python),'-c',export], export_env); break
             except RuntimeError:
                 if time.monotonic() >= deadline: raise
                 time.sleep(1)

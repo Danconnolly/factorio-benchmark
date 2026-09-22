@@ -1,0 +1,39 @@
+{
+  "scenario_version": "2.0.0",
+  "scenario_id": "smelt-one-iron-plate",
+  "factorio_version": "2.0.77",
+  "control": {
+    "repository": "factorio-player-mcp",
+    "protocol_version": "1.0.0",
+    "dedicated_player_name": "otaci"
+  },
+  "world": {
+    "seed": 424242,
+    "starting_save": "fixtures/smelt-one-iron-plate-baseline.v2.zip",
+    "starting_save_sha256": "cbafe4ca67ad26ed25de46ff1083a080e40fca9c82369125b5e8239dddfc622b",
+    "enabled_mods": [{"name": "factorio-player-mcp", "version": "0.2.0", "sha256": "7870b21fabdc1997ed11f3115d70692d4e3539e61c8067c0ce8a005c7f497f06"}]
+  },
+  "starting_state": {
+    "player_inventory": [
+      {"name": "iron-ore", "count": 1},
+      {"name": "coal", "count": 1},
+      {"name": "stone-furnace", "count": 1}
+    ],
+    "technologies": []
+  },
+  "budgets": {
+    "tool_calls": 40,
+    "game_ticks": 3600,
+    "wall_clock_seconds": 300
+  },
+  "goal": {
+    "kind": "player_inventory_item_count",
+    "item": "iron-plate",
+    "required_count": 1
+  },
+  "evaluator": {
+    "version": "1.0.0",
+    "input": "evaluator-only-final-state.v1.json",
+    "agent_access": false
+  }
+}

@@ -2,6 +2,21 @@
 
 Status recorded: 2026-09-13
 
+## Current runtime asset cutover
+
+Status recorded: 2026-09-22
+
+- The default installed runtime assets select `smelt-one-iron-plate.v2` and
+  `smelt-one-iron-plate-baseline.v2.zip` only; v1 scenario and fixture files
+  remain historical artifacts.
+- The v2 scenario and fixture metadata pin Factorio `2.0.77`, seed `424242`,
+  player `otaci`, and the unchanged one-iron-plate goal with `40` calls,
+  `3600` ticks, and `300` seconds.
+- The immutable v2 baseline SHA-256 is
+  `cbafe4ca67ad26ed25de46ff1083a080e40fca9c82369125b5e8239dddfc622b`.
+  It pins `factorio-player-mcp` `0.2.0`, archive SHA-256
+  `7870b21fabdc1997ed11f3115d70692d4e3539e61c8067c0ce8a005c7f497f06`.
+
 ## Completed and verified
 
 - `smelt-one-iron-plate.v1` is a deterministic Factorio `2.1.17` scenario with a fixed seed, dedicated player `otaci`, a `40`-tool-call budget, a `3600`-tick budget, and a `300`-second wall-clock budget.

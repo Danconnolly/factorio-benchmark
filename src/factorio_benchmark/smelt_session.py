@@ -72,10 +72,10 @@ def allocate_loopback_port() -> int:
         listener.bind(("127.0.0.1", 0))
         return int(listener.getsockname()[1])
 
-EXPORT = r'''import json, os, pathlib
+EXPORT_TEMPLATE = r'''import json, os, pathlib
 from factorio_rcon import RCONClient
 run=pathlib.Path(os.environ['BENCHMARK_RUN_DIR'])
-command="/silent-command local p=game.get_player('otaci'); rcon.print(helpers.table_to_json({scenario_id='smelt-one-iron-plate',factorio_version='2.1.17',dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))"
+command="/silent-command local p=game.get_player('otaci'); rcon.print(helpers.table_to_json({scenario_id='smelt-one-iron-plate',factorio_version=__FACTORIO_VERSION__,dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))"
 projection=json.loads(RCONClient('127.0.0.1', int(os.environ['FACTORIO_EVALUATOR_RCON_PORT']), os.environ['FACTORIO_EVALUATOR_RCON_PASSWORD']).send_command(command))
 (run/'evaluator-only-final-state.v1.json').write_text(json.dumps(projection, sort_keys=True)+'\n')'''
 
@@ -192,7 +192,8 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
             evaluator_password = secrets.token_urlsafe(32)  # process env only
             evaluator = subprocess.Popen([str(args.factorio), "--mod-directory", str(run / "server-mods"), "--start-server", str(run / "evaluator-input.zip"), "--server-settings", str(run / "server-settings.json"), "--server-adminlist", str(run / "server-adminlist.json"), "--port", "34198", "--rcon-bind", f"127.0.0.1:{EVALUATOR_PORT}", "--rcon-password", evaluator_password, "--console-log", str(run / "evaluator-server.log")])
             export_env = os.environ.copy() | {"BENCHMARK_RUN_DIR": str(run), "FACTORIO_EVALUATOR_RCON_PORT": str(EVALUATOR_PORT), "FACTORIO_EVALUATOR_RCON_PASSWORD": evaluator_password}
-            wait_for_readiness({"evaluator": lambda: subprocess.run([str(args.control_python), "-c", EXPORT], env=export_env).returncode == 0}, timeout_seconds=60, interval_seconds=1)
+            export = EXPORT_TEMPLATE.replace("__FACTORIO_VERSION__", json.dumps(scenario["factorio_version"]))
+            wait_for_readiness({"evaluator": lambda: subprocess.run([str(args.control_python), "-c", export], env=export_env).returncode == 0}, timeout_seconds=60, interval_seconds=1)
             projection_name = "evaluator-only-final-state.v1.json"
             score = evaluate_final_state(SCENARIO, run / projection_name)
             persist_offline_evaluator_result(run, score)

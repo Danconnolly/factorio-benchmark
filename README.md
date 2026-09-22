@@ -13,11 +13,11 @@ surface. It is deliberately separate from the future scenario-specific save.
 
 ## First scenario
 
-`scenarios/smelt-one-iron-plate.v1.json` pins a deterministic early-game task:
+`scenarios/smelt-one-iron-plate.v2.json` pins a deterministic early-game task:
 produce one iron plate from one iron ore, coal, and a stone furnace within fixed
 call, tick, and wall-clock budgets.
 
-The manifest declares the intended Factorio version (`2.1.17`), dedicated
+The manifest declares the intended Factorio version (`2.0.77`), dedicated
 player identity, control protocol version, seed, starting inventory, budgets,
 goal, and evaluator version. The referenced baseline save is a pinned artifact generated from a real
 Factorio instance. Its provenance and the verified live control gate are
@@ -74,7 +74,7 @@ transcript itself; agent-reported accounting is ignored.
 
 For example (do not run this until the paths and agent executable are real):
 
-    python3 scripts/run_smelt_agent.py --factorio /path/to/bin/x64/factorio --control-python /path/to/control-venv/bin/python --mod-archive /path/to/factorio-player-mcp_0.1.16.zip --client-template /path/to/factorio-user-data --runs-dir /path/to/runs --model-id example-model --agent-command '["/path/to/agent", "--its-options"]'
+    python3 scripts/run_smelt_agent.py --factorio /path/to/bin/x64/factorio --control-python /path/to/control-venv/bin/python --mod-archive /path/to/factorio-player-mcp_0.2.0.zip --client-template /path/to/factorio-user-data --runs-dir /path/to/runs --model-id example-model --agent-command '["/path/to/agent", "--its-options"]'
 
 `--agent-command` is a JSON argv array, so runner flags cannot be consumed as
 agent arguments. Server, broker, and player readiness are bounded gates before
@@ -95,4 +95,4 @@ is retained in the run manifest.
 For the included adapter, the API and recorded model strings are intentionally
 different:
 
-    python3 scripts/run_smelt_agent.py --factorio /path/to/bin/x64/factorio --control-python /path/to/control-venv/bin/python --mod-archive /path/to/factorio-player-mcp_0.1.16.zip --client-template /path/to/factorio-user-data --runs-dir /path/to/runs --model-id qwen3.8:latest@sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643 --agent-command '["python3", "scripts/openai_mcp_agent.py", "--model", "qwen3.8:latest", "--max-turns", "12"]'
+    python3 scripts/run_smelt_agent.py --factorio /path/to/bin/x64/factorio --control-python /path/to/control-venv/bin/python --mod-archive /path/to/factorio-player-mcp_0.2.0.zip --client-template /path/to/factorio-user-data --runs-dir /path/to/runs --model-id qwen3.8:latest@sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643 --agent-command '["python3", "scripts/openai_mcp_agent.py", "--model", "qwen3.8:latest", "--max-turns", "12"]'
