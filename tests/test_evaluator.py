@@ -51,7 +51,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
     def test_benchmark_release_version_matches_the_v2_asset_cutover(self) -> None:
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
-        self.assertEqual(project["project"]["version"], "0.2.0")
+        self.assertEqual(project["project"]["version"], "0.2.1")
 
     def test_scores_success_from_the_final_evaluator_state(self) -> None:
         result = self.evaluate(

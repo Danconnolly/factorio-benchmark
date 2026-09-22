@@ -1,0 +1,22 @@
+{
+  "fixture_version": "2.0.0",
+  "fixture_id": "player-control-test-baseline",
+  "archive": "player-control-test-baseline.v2.zip",
+  "sha256": "91d20a170e0e377bf5eb5580d9ecb1daf4ca7bbfdb5e1b19af2e8758c3566954",
+  "size_bytes": 860778,
+  "factorio_version": "2.0.77",
+  "purpose": "Regression fixture for factorio-player-mcp live control acceptance tests.",
+  "scope": "General control-layer fixture; distinct from the provisioned scored baseline.",
+  "required_control_capabilities": [
+    "observe_actor",
+    "observe_local",
+    "craft",
+    "wait",
+    "move",
+    "mine",
+    "place",
+    "rotate",
+    "interact_inventory"
+  ],
+  "provisioning_boundary": "A disposable VM-only bootstrap package seeded the dedicated actor setting and trusted fixture state. The released 0.2.0 control archive is the only agent-facing mod used to run this fixture."
+}

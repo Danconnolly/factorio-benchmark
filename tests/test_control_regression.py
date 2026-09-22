@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import subprocess
 import sys
 import unittest
@@ -57,6 +58,31 @@ class ControlRegressionTests(unittest.TestCase):
         self.assertIn("player-control-regression-trace.json", policy)
         for step in CONTROL_REGRESSION_STEPS:
             self.assertIn(step["name"], policy)
+    def test_runner_does_not_retry_a_mutating_policy_after_partial_failure(self) -> None:
+        tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
+        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+        policy_calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "run_policy"
+        ]
+
+        self.assertEqual(len(policy_calls), 1)
+        current = policy_calls[0]
+        while not isinstance(current, ast.Module):
+            current = parents[current]
+            self.assertNotIsInstance(current, ast.While)
+
+    def test_policy_accepts_a_native_craft_that_completes_before_queue_observation(self) -> None:
+        policy = build_policy()
+
+        self.assertIn('assert crafted.get("queued_count") in (0, 1), crafted', policy)
+
+    def test_runner_selects_the_factorio_2_0_control_fixture(self) -> None:
+        runner_source = RUNNER.read_text(encoding="utf-8")
+
+        self.assertIn('player-control-test-baseline.v2.zip', runner_source)
+        self.assertIn('player-control-test-baseline.v2.json', runner_source)
+
     def test_runner_accepts_only_explicit_isolated_inputs(self) -> None:
         completed = subprocess.run(
             [sys.executable, str(RUNNER), "--help"],

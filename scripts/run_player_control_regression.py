@@ -22,8 +22,8 @@ from factorio_benchmark.control_regression import build_policy
 from factorio_benchmark.run_artifacts import sha256_file, validate_pinned_archive
 
 
-FIXTURE = ROOT / "fixtures" / "player-control-test-baseline.zip"
-FIXTURE_METADATA = ROOT / "fixtures" / "player-control-test-baseline.v1.json"
+FIXTURE = ROOT / "fixtures" / "player-control-test-baseline.v2.zip"
+FIXTURE_METADATA = ROOT / "fixtures" / "player-control-test-baseline.v2.json"
 ACTOR_NAME = "otaci"
 
 
@@ -50,6 +50,29 @@ def run_policy(control_python: Path, environment: dict[str, str], timeout_second
     )
     if completed.returncode:
         raise RuntimeError(f"control regression policy failed: {completed.stderr.strip()}")
+
+
+def wait_for_actor_ready(control_python: Path, environment: dict[str, str], timeout_seconds: int) -> None:
+    """Wait with an observation-only probe before one mutating policy attempt."""
+    probe = (
+        "from factorio_player_mcp.rcon import FactorioRconSender; "
+        "from factorio_player_mcp.service import ActorService; import os; "
+        "result=ActorService(FactorioRconSender(host='127.0.0.1',"
+        "port=int(os.environ['FACTORIO_RCON_PORT']),"
+        "password=os.environ['FACTORIO_RCON_PASSWORD'])).observe_actor(); "
+        "assert result.get('status') == 'completed', result"
+    )
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        completed = subprocess.run(
+            [str(control_python), "-c", probe], env=environment,
+            capture_output=True, text=True,
+        )
+        if completed.returncode == 0:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"control regression actor did not become ready: {completed.stderr.strip()}")
+        time.sleep(2)
 
 
 def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
@@ -126,17 +149,10 @@ def main() -> None:
             "--mp-connect", f"127.0.0.1:{args.game_port}", "--disable-audio", "--force-graphics-preset", "very-low",
             "--video-memory-usage", "low", "--max-texture-size", "2048", "--window-size", "640x480",
         ], env=build_graphical_client_environment(environment))
-        deadline = time.monotonic() + 180
-        while True:
-            try:
-                started = time.monotonic()
-                run_policy(args.control_python, environment, timeout_seconds=150)
-                elapsed = time.monotonic() - started
-                break
-            except RuntimeError:
-                if time.monotonic() >= deadline:
-                    raise
-                time.sleep(2)
+        wait_for_actor_ready(args.control_python, environment, timeout_seconds=180)
+        started = time.monotonic()
+        run_policy(args.control_python, environment, timeout_seconds=150)
+        elapsed = time.monotonic() - started
         stop(client)
         client = None
         stop(server)
