@@ -39,7 +39,6 @@ RUNTIME_ASSETS = runtime_assets()
 SCENARIO = RUNTIME_ASSETS.scenario
 BASELINE = RUNTIME_ASSETS.baseline
 BROKER = RUNTIME_ASSETS.broker
-CONTROL_PORT, EVALUATOR_PORT = 27015, 27016
 
 AgentCallback = AsyncCallback
 
@@ -126,6 +125,8 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
     final_digest = None
     server = client = broker = agent = evaluator = None
     broker_port = allocate_loopback_port()
+    control_game_port = allocate_loopback_port()
+    control_rcon_port = allocate_loopback_port()
     prompt_sha = ""
     try:
         baseline_hash = validate_pinned_archive(BASELINE, scenario["world"]["starting_save_sha256"], "baseline")
@@ -142,10 +143,10 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
         factorio_root = args.factorio.parents[2]
         (run / "client-config.ini").write_text(f"[path]\nread-data={factorio_root / 'data'}\nwrite-data={run / 'client'}\n[general]\nlocale=auto\n[other]\ncheck-updates=false\n")
         control_password = secrets.token_urlsafe(32)  # never written to an artifact
-        server = subprocess.Popen([str(args.factorio), "--mod-directory", str(run / "server-mods"), "--start-server", str(run / "final-save.zip"), "--server-settings", str(run / "server-settings.json"), "--server-adminlist", str(run / "server-adminlist.json"), "--port", "34197", "--rcon-bind", f"127.0.0.1:{CONTROL_PORT}", "--rcon-password", control_password, "--console-log", str(run / "server.log")])
-        broker_env = os.environ.copy() | {"FACTORIO_RCON_HOST": "127.0.0.1", "FACTORIO_RCON_PORT": str(CONTROL_PORT), "FACTORIO_RCON_PASSWORD": control_password}
+        server = subprocess.Popen([str(args.factorio), "--mod-directory", str(run / "server-mods"), "--start-server", str(run / "final-save.zip"), "--server-settings", str(run / "server-settings.json"), "--server-adminlist", str(run / "server-adminlist.json"), "--port", str(control_game_port), "--rcon-bind", f"127.0.0.1:{control_rcon_port}", "--rcon-password", control_password, "--console-log", str(run / "server.log")])
+        broker_env = os.environ.copy() | {"FACTORIO_RCON_HOST": "127.0.0.1", "FACTORIO_RCON_PORT": str(control_rcon_port), "FACTORIO_RCON_PASSWORD": control_password}
         broker = start_isolated_process([str(args.control_python), str(BROKER), "--port", str(broker_port), "--measurements", str(run / "broker-measurements.json"), "--transcript", str(run / "broker-transcript.jsonl")], env=broker_env, stdout=(run / "broker.stdout.log").open("w"), stderr=(run / "broker.stderr.log").open("w"))
-        client = subprocess.Popen([str(args.factorio), "--config", str(run / "client-config.ini"), "--mod-directory", str(run / "client" / "mods"), "--mp-connect", "127.0.0.1:34197", "--disable-audio", "--force-graphics-preset", "very-low", "--video-memory-usage", "low", "--max-texture-size", "2048", "--window-size", "640x480"], env=build_graphical_client_environment(os.environ))
+        client = subprocess.Popen([str(args.factorio), "--config", str(run / "client-config.ini"), "--mod-directory", str(run / "client" / "mods"), "--mp-connect", f"127.0.0.1:{control_game_port}", "--disable-audio", "--force-graphics-preset", "very-low", "--video-memory-usage", "low", "--max-texture-size", "2048", "--window-size", "640x480"], env=build_graphical_client_environment(os.environ))
         # Gates finish before the measured agent interval.  The server/player
         # checks are broker observations, and the socket check proves the real
         # FastMCP Streamable HTTP listener is accepting connections.
@@ -190,8 +191,10 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
             shutil.copy2(run / "final-save.zip", run / "final-save-after-control.zip")
             shutil.copy2(run / "final-save.zip", run / "evaluator-input.zip")
             evaluator_password = secrets.token_urlsafe(32)  # process env only
-            evaluator = subprocess.Popen([str(args.factorio), "--mod-directory", str(run / "server-mods"), "--start-server", str(run / "evaluator-input.zip"), "--server-settings", str(run / "server-settings.json"), "--server-adminlist", str(run / "server-adminlist.json"), "--port", "34198", "--rcon-bind", f"127.0.0.1:{EVALUATOR_PORT}", "--rcon-password", evaluator_password, "--console-log", str(run / "evaluator-server.log")])
-            export_env = os.environ.copy() | {"BENCHMARK_RUN_DIR": str(run), "FACTORIO_EVALUATOR_RCON_PORT": str(EVALUATOR_PORT), "FACTORIO_EVALUATOR_RCON_PASSWORD": evaluator_password}
+            evaluator_game_port = allocate_loopback_port()
+            evaluator_rcon_port = allocate_loopback_port()
+            evaluator = subprocess.Popen([str(args.factorio), "--mod-directory", str(run / "server-mods"), "--start-server", str(run / "evaluator-input.zip"), "--server-settings", str(run / "server-settings.json"), "--server-adminlist", str(run / "server-adminlist.json"), "--port", str(evaluator_game_port), "--rcon-bind", f"127.0.0.1:{evaluator_rcon_port}", "--rcon-password", evaluator_password, "--console-log", str(run / "evaluator-server.log")])
+            export_env = os.environ.copy() | {"BENCHMARK_RUN_DIR": str(run), "FACTORIO_EVALUATOR_RCON_PORT": str(evaluator_rcon_port), "FACTORIO_EVALUATOR_RCON_PASSWORD": evaluator_password}
             export = EXPORT_TEMPLATE.replace("__FACTORIO_VERSION__", json.dumps(scenario["factorio_version"]))
             wait_for_readiness({"evaluator": lambda: subprocess.run([str(args.control_python), "-c", export], env=export_env).returncode == 0}, timeout_seconds=60, interval_seconds=1)
             projection_name = "evaluator-only-final-state.v1.json"

@@ -87,6 +87,13 @@ class SessionCallbackTests(unittest.TestCase):
         self.assertEqual(exit_data["kind"], "callback_error")
         self.assertIsNone(result)
 
+    def test_session_allocates_fresh_loopback_ports_for_every_factorio_role(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "src" / "factorio_benchmark" / "smelt_session.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("CONTROL_PORT", source)
+        self.assertNotIn("EVALUATOR_PORT", source)
+        self.assertGreaterEqual(source.count("allocate_loopback_port()"), 3)
+
     def test_provisioning_failure_returns_written_manifest_after_run_directory_exists(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
