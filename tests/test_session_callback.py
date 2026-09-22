@@ -94,6 +94,12 @@ class SessionCallbackTests(unittest.TestCase):
         self.assertNotIn("EVALUATOR_PORT", source)
         self.assertGreaterEqual(source.count("allocate_loopback_port()"), 3)
 
+    def test_evaluator_export_script_compiles_and_reads_version_from_environment(self) -> None:
+        from factorio_benchmark.smelt_session import EXPORT_TEMPLATE
+
+        compile(EXPORT_TEMPLATE, "<evaluator-export>", "exec")
+        self.assertIn("FACTORIO_EVALUATOR_FACTORIO_VERSION", EXPORT_TEMPLATE)
+
     def test_provisioning_failure_returns_written_manifest_after_run_directory_exists(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
