@@ -15,7 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from factorio_benchmark.run_artifacts import sha256_file, validate_legal_trace, validate_pinned_archive
-SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v2.json"
+from factorio_benchmark.scenario import load_scenario
+SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v3.json"
 BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.v2.zip"
 
 POLICY = r'''
@@ -45,9 +46,12 @@ import json, os, pathlib
 from factorio_rcon import RCONClient
 run=pathlib.Path(os.environ['BENCHMARK_RUN_DIR'])
 password=(run/'evaluator-rcon-password').read_text()
-command="/silent-command local p=game.get_player('otaci'); rcon.print(helpers.table_to_json({scenario_id='smelt-one-iron-plate',factorio_version=__FACTORIO_VERSION__,dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))"
+factorio_version=json.dumps(os.environ['FACTORIO_EVALUATOR_FACTORIO_VERSION'])
+scenario_id=json.dumps(os.environ['FACTORIO_EVALUATOR_SCENARIO_ID'])
+player_name=json.dumps(os.environ['FACTORIO_EVALUATOR_PLAYER_NAME'])
+command=("/silent-command local p=game.get_player(" + player_name + "); rcon.print(helpers.table_to_json({scenario_id=" + scenario_id + ",factorio_version=" + factorio_version + ",dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))")
 projection=json.loads(RCONClient('127.0.0.1', int(os.environ['FACTORIO_EVALUATOR_RCON_PORT']), password).send_command(command))
-(run/'evaluator-only-final-state.v1.json').write_text(json.dumps(projection, sort_keys=True)+'\n')
+(run/os.environ['FACTORIO_EVALUATOR_PROJECTION_OUTPUT']).write_text(json.dumps(projection, sort_keys=True)+'\n')
 '''
 
 
@@ -77,7 +81,7 @@ def main() -> None:
     parser.add_argument('--runs-dir', type=Path, required=True)
     parser.add_argument('--run-name', default=f"smelt-one-iron-plate-{int(time.time())}")
     args = parser.parse_args()
-    scenario = json.loads(SCENARIO.read_text())
+    scenario = load_scenario(SCENARIO)
     run = args.runs_dir / args.run_name
     if run.exists():
         raise SystemExit(f"run directory already exists: {run}")
@@ -125,12 +129,12 @@ def main() -> None:
         shutil.copy2(run/'final-save.zip', run/'final-save-after-control.zip'); shutil.copy2(run/'final-save.zip', run/'evaluator-input.zip')
         evaluator_password=secrets.token_urlsafe(32); (run/'evaluator-rcon-password').write_text(evaluator_password); os.chmod(run/'evaluator-rcon-password',0o600)
         evaluator=subprocess.Popen([str(args.factorio),'--mod-directory',str(server_mods),'--start-server',str(run/'evaluator-input.zip'),'--server-settings',str(run/'server-settings.json'),'--server-adminlist',str(run/'server-adminlist.json'),'--port','34198','--rcon-bind','127.0.0.1:27016','--rcon-password',evaluator_password,'--console-log',str(run/'evaluator-server.log')])
-        export_env=env | {'FACTORIO_EVALUATOR_RCON_PORT':'27016'}
+        projection = scenario['evaluator']['projection']
+        export_env=env | {'FACTORIO_EVALUATOR_RCON_PORT':'27016', 'FACTORIO_EVALUATOR_FACTORIO_VERSION':scenario['factorio_version'], 'FACTORIO_EVALUATOR_SCENARIO_ID':scenario['scenario_id'], 'FACTORIO_EVALUATOR_PLAYER_NAME':scenario['control']['dedicated_player_name'], 'FACTORIO_EVALUATOR_PROJECTION_OUTPUT':projection['output']}
         deadline=time.monotonic()+60
         while True:
             try:
-                export = EXPORT_TEMPLATE.replace('__FACTORIO_VERSION__', json.dumps(scenario['factorio_version']))
-                run_child([str(args.control_python),'-c',export], export_env); break
+                run_child([str(args.control_python),'-c',EXPORT_TEMPLATE], export_env); break
             except RuntimeError:
                 if time.monotonic() >= deadline: raise
                 time.sleep(1)
@@ -139,7 +143,7 @@ def main() -> None:
         trace['wall_clock_seconds'] = policy_elapsed
         (run/'legal-run-trace.json').write_text(json.dumps(trace, sort_keys=True)+'\n')
         budgets=validate_legal_trace(trace, tool_call_budget=scenario['budgets']['tool_calls'], tick_budget=scenario['budgets']['game_ticks'], wall_clock_budget=scenario['budgets']['wall_clock_seconds'])
-        result=evaluate_final_state(SCENARIO,run/'evaluator-only-final-state.v1.json')
+        result=evaluate_final_state(SCENARIO,run/projection['output'])
         (run/'offline-evaluator-result.json').write_text(json.dumps(result,sort_keys=True)+'\n')
         manifest={'scenario':scenario['scenario_id'],'baseline_sha256':baseline_hash,'control_mod_sha256':mod_hash,'final_save_sha256':sha256_file(run/'final-save.zip'),'budgets':budgets,'score':result}
         (run/'run-manifest.json').write_text(json.dumps(manifest,sort_keys=True)+'\n')

@@ -6,10 +6,10 @@ Status recorded: 2026-09-13
 
 Status recorded: 2026-09-22
 
-- The default installed runtime assets select `smelt-one-iron-plate.v2` and
-  `smelt-one-iron-plate-baseline.v2.zip` only; v1 scenario and fixture files
+- The default installed runtime assets select `smelt-one-iron-plate.v3` and
+  `smelt-one-iron-plate-baseline.v2.zip` only; v1 and v2 scenario files
   remain historical artifacts.
-- The v2 scenario and fixture metadata pin Factorio `2.0.77`, seed `424242`,
+- The v3 scenario and v2 fixture metadata pin Factorio `2.0.77`, seed `424242`,
   player `otaci`, and the unchanged one-iron-plate goal with `40` calls,
   `3600` ticks, and `300` seconds.
 - The immutable v2 baseline SHA-256 is

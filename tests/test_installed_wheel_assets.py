@@ -45,7 +45,7 @@ assets = runtime_assets()
 assert assets.broker.is_file(), assets.broker
 assert assets.scenario.is_file(), assets.scenario
 assert assets.baseline.is_file(), assets.baseline
-assert assets.scenario.name == "smelt-one-iron-plate.v2.json", assets.scenario
+assert assets.scenario.name == "smelt-one-iron-plate.v3.json", assets.scenario
 assert assets.baseline.name == "smelt-one-iron-plate-baseline.v2.zip", assets.baseline
 scenario = json.loads(assets.scenario.read_text(encoding="utf-8"))
 assert scenario["factorio_version"] == "2.0.77", scenario
@@ -54,7 +54,7 @@ assert "site-packages/scripts" not in str(assets.broker), assets.broker
 calls = []
 class Result:
     returncode = 0
-    stdout = ""
+    stdout = "Version: 2.0.77 (build 1)\n"
     stderr = ""
 def checked(command, **kwargs):
     calls.append(command)

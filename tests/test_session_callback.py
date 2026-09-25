@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 from factorio_benchmark.session import CallbackRequest, run_callback_attempt, validate_callback_result
 from factorio_benchmark.smelt_session import (
-    SmeltSessionRuntime, run_smelt_callback_session, run_smelt_session,
+    SmeltSessionRuntime, resolve_starting_save, run_smelt_callback_session,
+    run_smelt_session, runtime_factorio_version, validate_initial_state,
 )
 
 
@@ -100,6 +101,57 @@ class SessionCallbackTests(unittest.TestCase):
         compile(EXPORT_TEMPLATE, "<evaluator-export>", "exec")
         self.assertIn("FACTORIO_EVALUATOR_FACTORIO_VERSION", EXPORT_TEMPLATE)
 
+    def test_initial_state_validation_requires_exact_inventory_and_technology_set(self) -> None:
+        assertions = {
+            "player_inventory": [{"name": "iron-ore", "count": 1}],
+            "technologies": ["automation"],
+        }
+        validate_initial_state({"player_inventory": [{"name": "iron-ore", "count": 1}], "technologies": ["automation"]}, assertions)
+        with self.assertRaisesRegex(ValueError, "inventory"):
+            validate_initial_state({"player_inventory": [{"name": "iron-ore", "count": 2}], "technologies": ["automation"]}, assertions)
+        with self.assertRaisesRegex(ValueError, "technologies"):
+            validate_initial_state({"player_inventory": [{"name": "iron-ore", "count": 1}], "technologies": []}, assertions)
+
+    def test_starting_save_must_be_present_beneath_asset_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scenario = root / "assets" / "scenarios" / "scenario.json"
+            scenario.parent.mkdir(parents=True)
+            save = root / "assets" / "fixtures" / "save.zip"
+            save.parent.mkdir()
+            save.write_bytes(b"save")
+            self.assertEqual(resolve_starting_save(scenario, "fixtures/save.zip"), save)
+            with self.assertRaisesRegex(ValueError, "trusted asset root"):
+                resolve_starting_save(scenario, "../outside.zip")
+
+    def test_runtime_factorio_version_parses_and_rejects_unknown_output(self) -> None:
+        with patch("factorio_benchmark.smelt_session.subprocess.run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = "Version: 2.0.77 (build 1)\n"
+            run.return_value.stderr = ""
+            self.assertEqual(runtime_factorio_version(Path("/factorio")), "2.0.77")
+            run.return_value.stdout = "unrecognized"
+            with self.assertRaisesRegex(ValueError, "--version"):
+                runtime_factorio_version(Path("/factorio"))
+
+    def test_invalid_scenario_fails_before_runtime_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scenario = root / "invalid-scenario.json"
+            scenario.write_text('{"scenario_version": "unsupported"}', encoding="utf-8")
+            args = Namespace(
+                factorio=root / "factorio", control_python=Path(sys.executable),
+                mod_archive=root / "mod.zip", client_template=root / "client",
+                runs_dir=root / "runs", run_name="invalid", model_id="model",
+                agent_command=("agent",),
+            )
+            with patch("factorio_benchmark.smelt_session.SCENARIO", scenario), patch(
+                "factorio_benchmark.smelt_session.subprocess.run",
+            ) as runtime_preflight:
+                with self.assertRaisesRegex(SystemExit, "scenario"):
+                    run_smelt_session(args)
+            runtime_preflight.assert_not_called()
+
     def test_provisioning_failure_returns_written_manifest_after_run_directory_exists(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -109,7 +161,7 @@ class SessionCallbackTests(unittest.TestCase):
                 runs_dir=root / "runs", run_name="failed", model_id="model",
                 agent_command=("agent",),
             )
-            with patch("factorio_benchmark.smelt_session.subprocess.run") as check, patch(
+            with patch("factorio_benchmark.smelt_session.runtime_factorio_version", return_value="2.0.77"), patch("factorio_benchmark.smelt_session.subprocess.run") as check, patch(
                 "factorio_benchmark.smelt_session.validate_pinned_archive",
                 side_effect=ValueError("bad baseline"),
             ):

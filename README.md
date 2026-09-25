@@ -13,7 +13,8 @@ surface. It is deliberately separate from the future scenario-specific save.
 
 ## First scenario
 
-`scenarios/smelt-one-iron-plate.v2.json` pins a deterministic early-game task:
+`scenarios/smelt-one-iron-plate.v3.json` is a strict, declarative contract for
+a deterministic early-game task:
 produce one iron plate from one iron ore, coal, and a stone furnace within fixed
 call, tick, and wall-clock budgets.
 
@@ -22,6 +23,11 @@ player identity, control protocol version, seed, starting inventory, budgets,
 goal, and evaluator version. The referenced baseline save is a pinned artifact generated from a real
 Factorio instance. Its provenance and the verified live control gate are
 recorded in [`docs/BASELINE_STATUS.md`](docs/BASELINE_STATUS.md).
+
+The [scenario schema](docs/SCENARIO_SCHEMA.md) validates all fields before the
+runner starts Factorio or creates credentials. It permits only supported goal
+and evaluator-projection vocabulary; scenario files cannot contain scripts or
+commands.
 
 ## Independent evaluator
 

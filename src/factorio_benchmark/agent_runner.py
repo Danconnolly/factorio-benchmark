@@ -47,18 +47,11 @@ def build_agent_environment(*, base_environment: Mapping[str, str], prompt_path:
     return environment
 
 
-def build_smelt_agent_prompt() -> str:
-    """Give the external model the fixed scenario plan, not control authority."""
-    return (
-        "Use only the supplied constrained Factorio MCP connection. Goal: put one iron-plate in "
-        "player otaci's inventory. The valid action sequence is: observe_actor; optionally "
-        "observe_local; place the stone-furnace at (2, 0), facing north; use interact_inventory "
-        "to deposit the one iron-ore into its input and the one coal into its fuel; wait 600 ticks; "
-        "use interact_inventory to withdraw one iron-plate from output; then observe_actor to "
-        "confirm it. Use the tool schemas and observed coordinates. "
-        "Do not attempt direct server control or write accounting: the broker records calls and ticks, "
-        "and only the evaluator determines completion. End with a final answer after your final observation.\n"
-    )
+def build_agent_prompt(agent_task: str) -> str:
+    """Return the already validated public task text declared by a scenario."""
+    if not isinstance(agent_task, str) or not agent_task:
+        raise ValueError("agent task must be a non-empty string")
+    return agent_task
 
 
 def build_graphical_client_environment(base_environment: Mapping[str, str]) -> dict[str, str]:

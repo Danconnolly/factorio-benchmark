@@ -11,7 +11,7 @@ from factorio_benchmark.run_artifacts import sha256_file, validate_legal_trace, 
 
 
 ROOT = Path(__file__).parents[1]
-SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v2.json"
+SCENARIO = ROOT / "scenarios" / "smelt-one-iron-plate.v3.json"
 FIXTURE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.v2.json"
 BASELINE = ROOT / "fixtures" / "smelt-one-iron-plate-baseline.v2.zip"
 
@@ -23,7 +23,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
             final_state.write_text(json.dumps(state), encoding="utf-8")
             return evaluate_final_state(SCENARIO, final_state)
 
-    def test_v2_scenario_pins_the_release_runtime(self) -> None:
+    def test_v3_scenario_pins_the_release_runtime(self) -> None:
         scenario = json.loads(SCENARIO.read_text(encoding="utf-8"))
 
         self.assertEqual(scenario["factorio_version"], "2.0.77")
@@ -144,7 +144,7 @@ class FinalStateEvaluatorTests(unittest.TestCase):
             scenario_path.write_text(json.dumps(scenario), encoding="utf-8")
             final_state.write_text(json.dumps({"scenario_id": "smelt-one-iron-plate", "factorio_version": "2.0.77", "dedicated_player": {"name": "otaci", "inventory": []}}), encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "scenario evaluator"):
+            with self.assertRaisesRegex(ValueError, "missing.*evaluator"):
                 evaluate_final_state(scenario_path, final_state)
 
 

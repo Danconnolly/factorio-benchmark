@@ -19,7 +19,7 @@ def runtime_assets() -> RuntimeAssets:
     root = Path(__file__).with_name("assets")
     assets = RuntimeAssets(
         broker=root / "scripts" / "factorio_constrained_broker.py",
-        scenario=root / "scenarios" / "smelt-one-iron-plate.v2.json",
+        scenario=root / "scenarios" / "smelt-one-iron-plate.v3.json",
         baseline=root / "fixtures" / "smelt-one-iron-plate-baseline.v2.zip",
     )
     for path in (assets.broker, assets.scenario, assets.baseline):
