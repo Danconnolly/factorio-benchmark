@@ -12,7 +12,7 @@ from pathlib import Path
 
 from factorio_benchmark.agent_runner import (
     AgentRunConfiguration, build_agent_environment, build_agent_mcp_config,
-    build_smelt_agent_prompt,
+    build_agent_prompt,
     build_graphical_client_environment,
     build_run_manifest, index_retained_artifacts, parse_runner_arguments,
     persist_offline_evaluator_result,
@@ -23,7 +23,16 @@ from factorio_benchmark.agent_runner import (
 
 class AgentRunnerTests(unittest.TestCase):
     def test_smelt_prompt_states_goal_legal_sequence_and_trusted_completion(self) -> None:
-        prompt = build_smelt_agent_prompt()
+        prompt = build_agent_prompt(
+            "Use only the supplied constrained Factorio MCP connection. Goal: put one iron-plate in "
+            "player otaci's inventory. The valid action sequence is: observe_actor; optionally "
+            "observe_local; place the stone-furnace at (2, 0), facing north; use interact_inventory "
+            "to deposit the one iron-ore into its input and the one coal into its fuel; wait 600 ticks; "
+            "use interact_inventory to withdraw one iron-plate from output; then observe_actor to "
+            "confirm it. Use the tool schemas and observed coordinates. "
+            "Do not attempt direct server control or write accounting: the broker records calls and ticks, "
+            "and only the evaluator determines completion. End with a final answer after your final observation.\n"
+        )
         self.assertIn("one iron-plate", prompt)
         self.assertIn("place", prompt)
         self.assertIn("interact_inventory", prompt)

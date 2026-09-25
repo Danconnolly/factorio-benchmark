@@ -100,6 +100,24 @@ class SessionCallbackTests(unittest.TestCase):
         compile(EXPORT_TEMPLATE, "<evaluator-export>", "exec")
         self.assertIn("FACTORIO_EVALUATOR_FACTORIO_VERSION", EXPORT_TEMPLATE)
 
+    def test_invalid_scenario_fails_before_runtime_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scenario = root / "invalid-scenario.json"
+            scenario.write_text('{"scenario_version": "unsupported"}', encoding="utf-8")
+            args = Namespace(
+                factorio=root / "factorio", control_python=Path(sys.executable),
+                mod_archive=root / "mod.zip", client_template=root / "client",
+                runs_dir=root / "runs", run_name="invalid", model_id="model",
+                agent_command=("agent",),
+            )
+            with patch("factorio_benchmark.smelt_session.SCENARIO", scenario), patch(
+                "factorio_benchmark.smelt_session.subprocess.run",
+            ) as runtime_preflight:
+                with self.assertRaisesRegex(SystemExit, "scenario"):
+                    run_smelt_session(args)
+            runtime_preflight.assert_not_called()
+
     def test_provisioning_failure_returns_written_manifest_after_run_directory_exists(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from factorio_benchmark.scenario import load_scenario
+
 
 def _load_object(path: Path) -> dict[str, Any]:
     try:
@@ -38,7 +40,7 @@ def evaluate_final_state(scenario_path: Path, final_state_path: Path) -> dict[st
     The projection must be produced after the agent-facing MCP endpoint is shut
     down. This function deliberately has no access to the control transport.
     """
-    scenario = _load_object(scenario_path)
+    scenario = load_scenario(scenario_path)
     final_state = _load_object(final_state_path)
 
     scenario_id = scenario.get("scenario_id")
@@ -58,9 +60,7 @@ def evaluate_final_state(scenario_path: Path, final_state_path: Path) -> dict[st
     if dedicated_player.get("name") != control.get("dedicated_player_name"):
         raise ValueError("final_state dedicated player does not match scenario")
 
-    goal = scenario.get("goal")
-    if not isinstance(goal, dict) or goal.get("kind") != "player_inventory_item_count":
-        raise ValueError("unsupported scenario goal")
+    goal = scenario["goal"]
     item = goal.get("item")
     required_count = goal.get("required_count")
     if not isinstance(item, str) or not item:
@@ -70,9 +70,7 @@ def evaluate_final_state(scenario_path: Path, final_state_path: Path) -> dict[st
 
     actual_count = _item_count(dedicated_player.get("inventory"), item)
     success = actual_count >= required_count
-    evaluator = scenario.get("evaluator")
-    if not isinstance(evaluator, dict):
-        raise ValueError("scenario evaluator must be an object")
+    evaluator = scenario["evaluator"]
     evaluator_version = evaluator.get("version")
     if not isinstance(evaluator_version, str) or not evaluator_version:
         raise ValueError("scenario evaluator version must be a non-empty string")

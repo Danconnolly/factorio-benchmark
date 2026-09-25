@@ -23,7 +23,7 @@ from typing import Any
 
 from factorio_benchmark.agent_runner import (
     AgentRunConfiguration, build_agent_environment, build_agent_mcp_config,
-    build_smelt_agent_prompt,
+    build_agent_prompt,
     build_graphical_client_environment,
     build_run_manifest, index_retained_artifacts, parse_runner_arguments,
     persist_offline_evaluator_result,
@@ -34,6 +34,7 @@ from factorio_benchmark.evaluator import evaluate_final_state
 from factorio_benchmark.run_artifacts import sha256_file, validate_pinned_archive
 from factorio_benchmark.session import AsyncCallback, CallbackRequest, run_callback_attempt
 from factorio_benchmark.assets import runtime_assets
+from factorio_benchmark.scenario import load_scenario
 
 RUNTIME_ASSETS = runtime_assets()
 SCENARIO = RUNTIME_ASSETS.scenario
@@ -75,9 +76,11 @@ EXPORT_TEMPLATE = r'''import json, os, pathlib
 from factorio_rcon import RCONClient
 run=pathlib.Path(os.environ['BENCHMARK_RUN_DIR'])
 factorio_version=json.dumps(os.environ['FACTORIO_EVALUATOR_FACTORIO_VERSION'])
-command=("/silent-command local p=game.get_player('otaci'); rcon.print(helpers.table_to_json({scenario_id='smelt-one-iron-plate',factorio_version=" + factorio_version + ",dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))")
+scenario_id=json.dumps(os.environ['FACTORIO_EVALUATOR_SCENARIO_ID'])
+player_name=json.dumps(os.environ['FACTORIO_EVALUATOR_PLAYER_NAME'])
+command=("/silent-command local p=game.get_player(" + player_name + "); rcon.print(helpers.table_to_json({scenario_id=" + scenario_id + ",factorio_version=" + factorio_version + ",dedicated_player={name=p.name,inventory=p.get_main_inventory().get_contents()}}))")
 projection=json.loads(RCONClient('127.0.0.1', int(os.environ['FACTORIO_EVALUATOR_RCON_PORT']), os.environ['FACTORIO_EVALUATOR_RCON_PASSWORD']).send_command(command))
-(run/'evaluator-only-final-state.v1.json').write_text(json.dumps(projection, sort_keys=True)+'\n')'''
+(run/os.environ['FACTORIO_EVALUATOR_PROJECTION_OUTPUT']).write_text(json.dumps(projection, sort_keys=True)+'\n')'''
 
 
 def write_json(path: Path, value: object) -> None:
@@ -109,13 +112,16 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
         validate_agent_configuration(configuration)
     except ValueError as error:
         raise SystemExit(str(error)) from error
+    try:
+        scenario = load_scenario(SCENARIO)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     # This checks the supplied (not this development) interpreter before any
     # Factorio process or credential is created.
     supported = subprocess.run([str(args.control_python), str(BROKER), "--check-runtime"], capture_output=True, text=True)
     if supported.returncode:
         raise SystemExit(f"constrained broker unsupported: {supported.stdout}{supported.stderr}".strip())
 
-    scenario = json.loads(SCENARIO.read_text(encoding="utf-8"))
     run = args.runs_dir / args.run_name
     if run.exists():
         raise SystemExit("run directory already exists")
@@ -157,7 +163,7 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
         wait_for_readiness({"server": observed, "broker": lambda: socket_ready(broker_port), "dedicated_player": observed}, timeout_seconds=120, interval_seconds=1)
         config = build_agent_mcp_config(f"http://127.0.0.1:{broker_port}/mcp")
         write_json(run / "agent-mcp.json", config)
-        prompt = build_smelt_agent_prompt()
+        prompt = build_agent_prompt(scenario["agent_task"])
         (run / "agent-prompt.txt").write_text(prompt, encoding="utf-8")
         prompt_sha = hashlib.sha256(prompt.encode()).hexdigest()
         agent_env = build_agent_environment(base_environment=os.environ, prompt_path=str(run / "agent-prompt.txt"), mcp_config_path=str(run / "agent-mcp.json"))
@@ -195,10 +201,11 @@ def run_smelt_session(args: argparse.Namespace, callback: AgentCallback | None =
             evaluator_game_port = allocate_loopback_port()
             evaluator_rcon_port = allocate_loopback_port()
             evaluator = subprocess.Popen([str(args.factorio), "--mod-directory", str(run / "server-mods"), "--start-server", str(run / "evaluator-input.zip"), "--server-settings", str(run / "server-settings.json"), "--server-adminlist", str(run / "server-adminlist.json"), "--port", str(evaluator_game_port), "--rcon-bind", f"127.0.0.1:{evaluator_rcon_port}", "--rcon-password", evaluator_password, "--console-log", str(run / "evaluator-server.log")])
-            export_env = os.environ.copy() | {"BENCHMARK_RUN_DIR": str(run), "FACTORIO_EVALUATOR_RCON_PORT": str(evaluator_rcon_port), "FACTORIO_EVALUATOR_RCON_PASSWORD": evaluator_password, "FACTORIO_EVALUATOR_FACTORIO_VERSION": scenario["factorio_version"]}
+            projection = scenario["evaluator"]["projection"]
+            export_env = os.environ.copy() | {"BENCHMARK_RUN_DIR": str(run), "FACTORIO_EVALUATOR_RCON_PORT": str(evaluator_rcon_port), "FACTORIO_EVALUATOR_RCON_PASSWORD": evaluator_password, "FACTORIO_EVALUATOR_FACTORIO_VERSION": scenario["factorio_version"], "FACTORIO_EVALUATOR_SCENARIO_ID": scenario["scenario_id"], "FACTORIO_EVALUATOR_PLAYER_NAME": scenario["control"]["dedicated_player_name"], "FACTORIO_EVALUATOR_PROJECTION_OUTPUT": projection["output"]}
             export = EXPORT_TEMPLATE
             wait_for_readiness({"evaluator": lambda: subprocess.run([str(args.control_python), "-c", export], env=export_env).returncode == 0}, timeout_seconds=60, interval_seconds=1)
-            projection_name = "evaluator-only-final-state.v1.json"
+            projection_name = projection["output"]
             score = evaluate_final_state(SCENARIO, run / projection_name)
             persist_offline_evaluator_result(run, score)
     except Exception as error:
