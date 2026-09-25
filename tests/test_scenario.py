@@ -61,6 +61,16 @@ class ScenarioSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "relative artifact path"):
             validate_scenario(scenario)
 
+    def test_rejects_additional_or_non_control_mods(self) -> None:
+        scenario = self.read_scenario()
+        scenario["world"]["enabled_mods"].append(dict(scenario["world"]["enabled_mods"][0]))
+        with self.assertRaisesRegex(ValueError, "exactly the supported"):
+            validate_scenario(scenario)
+        scenario = self.read_scenario()
+        scenario["world"]["enabled_mods"][0]["name"] = "other-mod"
+        with self.assertRaisesRegex(ValueError, "factorio-player-mcp"):
+            validate_scenario(scenario)
+
     def test_load_reports_invalid_json_with_the_file_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "scenario.json"

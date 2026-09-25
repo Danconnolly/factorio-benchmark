@@ -10,8 +10,10 @@ unknown fields are rejected with a path-specific `ValueError`.
 Top-level fields are `scenario_version`, `scenario_id`, `factorio_version`,
 `control`, `world`, `initial_state_assertions`, `budgets`, `agent_task`, `goal`, and
 `evaluator`. `world` pins the relative baseline-save path and SHA-256 plus each
-required mod's name, version, and SHA-256. `initial_state_assertions` records
-the required inventory and technologies; `budgets` records positive call, tick,
+supported `factorio-player-mcp` control mod's name, version, and SHA-256; exactly
+one such mod is supported. `initial_state_assertions` records the exact initial
+inventory and researched technologies, which the runner independently verifies
+before agent control; `budgets` records positive call, tick,
 and wall-clock limits.
 
 `agent_task` is the complete public text provided to the agent. It is data, not

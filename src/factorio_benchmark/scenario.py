@@ -55,9 +55,13 @@ def _positive_integer(value: object, path: str) -> int:
 def _validate_inventory(value: object, path: str) -> None:
     if not isinstance(value, list):
         _fail(path, "must be an array")
+    names: set[str] = set()
     for index, entry in enumerate(value):
         item = _object(entry, f"{path}[{index}]", fields={"name", "count"})
-        _string(item["name"], f"{path}[{index}].name")
+        name = _string(item["name"], f"{path}[{index}].name")
+        if name in names:
+            _fail(f"{path}[{index}].name", "must not be repeated")
+        names.add(name)
         _nonnegative_integer(item["count"], f"{path}[{index}].count")
 
 
@@ -88,16 +92,22 @@ def validate_scenario(value: object) -> dict[str, Any]:
     _string(world["starting_save_sha256"], "world.starting_save_sha256", pattern=_SHA256)
     if not isinstance(world["enabled_mods"], list) or not world["enabled_mods"]:
         _fail("world.enabled_mods", "must be a non-empty array")
+    if len(world["enabled_mods"]) != 1:
+        _fail("world.enabled_mods", "must contain exactly the supported factorio-player-mcp control mod")
     for index, mod_value in enumerate(world["enabled_mods"]):
         mod = _object(mod_value, f"world.enabled_mods[{index}]", fields={"name", "version", "sha256"})
         _string(mod["name"], f"world.enabled_mods[{index}].name")
         _string(mod["version"], f"world.enabled_mods[{index}].version")
         _string(mod["sha256"], f"world.enabled_mods[{index}].sha256", pattern=_SHA256)
+        if mod["name"] != "factorio-player-mcp":
+            _fail(f"world.enabled_mods[{index}].name", "must be factorio-player-mcp")
 
     state = _object(scenario["initial_state_assertions"], "initial_state_assertions", fields={"player_inventory", "technologies"})
     _validate_inventory(state["player_inventory"], "initial_state_assertions.player_inventory")
     if not isinstance(state["technologies"], list) or not all(isinstance(item, str) and item for item in state["technologies"]):
         _fail("initial_state_assertions.technologies", "must be an array of non-empty strings")
+    if len(set(state["technologies"])) != len(state["technologies"]):
+        _fail("initial_state_assertions.technologies", "must not contain repeated technologies")
 
     budgets = _object(scenario["budgets"], "budgets", fields={"tool_calls", "game_ticks", "wall_clock_seconds"})
     for name in budgets:

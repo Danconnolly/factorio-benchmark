@@ -54,7 +54,7 @@ assert "site-packages/scripts" not in str(assets.broker), assets.broker
 calls = []
 class Result:
     returncode = 0
-    stdout = ""
+    stdout = "Version: 2.0.77 (build 1)\n"
     stderr = ""
 def checked(command, **kwargs):
     calls.append(command)
